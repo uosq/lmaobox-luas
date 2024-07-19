@@ -1,41 +1,35 @@
 local settings = {
-    speed = 1, -- is as low as you can get
+    speed = 0.7,
     inverted = false,
-    real = true, -- if real yaw changes
-    fake = true, -- if fake yaw changes
 }
+
+print("I recommend using smooth aimbot")
 
 local direction = 1 -- dont change plez
 
-gui.SetValue("anti aim", 1)
+local pitch,yaw,roll = engine.GetViewAngles():Unpack()
 
-gui.SetValue("anti aim - yaw (real)", (settings.real == true and "custom" or "none"))
-gui.SetValue("anti aim - yaw (fake)", (settings.fake == true and "custom" or "none"))
-
-local custom_yaw_real = "anti aim - custom yaw (real)"
-local custom_yaw_fake = "anti aim - custom yaw (fake)"
-
-gui.SetValue(custom_yaw_real, (settings.real == true and 0 or gui.GetValue(custom_yaw_real)))
-gui.SetValue(custom_yaw_fake, (settings.fake == true and 0 or gui.GetValue(custom_yaw_fake)))
-
-local yaw = 0
+local yaw_max_left = yaw + 45
+local yaw_max_right = yaw - 45
 
 local function change_angle()
-    if (yaw >= 45 or yaw <= -45)  then
+    local has_target = aimbot.GetAimbotTarget()
+    if has_target > 0 then
+        pitch,yaw,roll = engine.GetViewAngles():Unpack()
+        yaw_max_left = yaw + 45
+        yaw_max_right = yaw - 45
+        goto lul
+    end
+    
+    if (yaw >= yaw_max_left or yaw <= yaw_max_right) then
         direction = -direction
     end
 
     local new_yaw = yaw + (settings.speed * direction * (settings.inverted == true and -1 or 1))
-
-    if settings.real then
-        gui.SetValue(custom_yaw_real, new_yaw)
-    end
-
-    if settings.fake then
-        gui.SetValue(custom_yaw_fake, new_yaw)
-    end
-
+    engine.SetViewAngles( EulerAngles( pitch, new_yaw, roll ) )
     yaw = new_yaw
+
+    ::lul::
 end
 
 callbacks.Register( "CreateMove", change_angle )
