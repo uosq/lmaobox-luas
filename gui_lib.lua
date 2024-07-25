@@ -1,9 +1,7 @@
-local objects = {}
-
 local font = draw.CreateFont("Verdana", 12, 500)
 draw.SetFont(font)
+local objects = {}
 
----comment
 ---@param r number
 ---@param g number
 ---@param b number
@@ -79,8 +77,6 @@ local function Button_new(name, position, size, bg_color, text_color, text, can_
         else
             draw.Color (bg_color.r,bg_color.g,bg_color.b, bg_color.a)
         end
-
-        --draw.Color (new_button.bg_color.r,new_button.bg_color.g,new_button.bg_color.b, new_button.bg_color.a)
         draw.FilledRect(position.x, position.y, position.x + size.width, position.y + size.height)
         
         draw.Color (new_button.text_color.g,new_button.text_color.g,new_button.text_color.b,new_button.text_color.a)
@@ -106,7 +102,40 @@ local function is_mouse_inside(object)
     return true
 end
 
---local window = Object_new("Window", {x=1920/2,y=1080/2}, {width=800,height=600}, false, {r=100,g=100,b=100,a=255}, nil)
+callbacks.Register( "Draw", "focusiguess", function()
+    for k,v in pairs (objects) do
+        if v.can_click and is_mouse_inside(v) then
+            v.mouse_inside = true
+        else
+            v.mouse_inside = false
+        end
+    end
+end)
+
+local last_clicked_tick = 0
+callbacks.Register( "Draw", "mouseclicks", function()
+    local state, tick = input.IsButtonPressed( MOUSE_LEFT )
+    if not state or last_clicked_tick == tick then
+        goto continue
+    end
+    for k,v in pairs (objects) do
+        if not v.can_click then
+            goto continue2
+        end
+        if is_mouse_inside(v) then
+            v.click_func()
+        end
+        ::continue2::
+    end
+    last_clicked_tick = tick
+    ::continue::
+end)
+callbacks.Register( "Draw", "render", function()
+    for k,v in pairs (objects) do
+        v.render_func()
+    end
+end)
+
 local window = Window_new("Window", {x=1920/2,y=1080/2}, {width=800,height=600}, rgba(100,100,100), {thickness=2,color=rgba(255,255,255)})
 
 local window_total_size_x = window.position.x + window.size.width
@@ -129,6 +158,9 @@ local topbar = Button_new ("topbar", {x=window.position.x,y=window.position.y}, 
     drag_delta.y = my - last_mouse_pos.y
 
     callbacks.Register("Draw", "mousedrag", function()
+
+        -- got some ideas on how to make this from LnxLib or ImMenu im not sure which one but i mostly made this myself lol
+
         local mx = input.GetMousePos()[1]
         local my = input.GetMousePos()[2]
         if not input.IsButtonDown( MOUSE_LEFT ) then
@@ -144,45 +176,4 @@ local topbar = Button_new ("topbar", {x=window.position.x,y=window.position.y}, 
             v.position.y = v.position.y + drag_delta.y
         end
     end)
-end)
-
-local last_clicked_tick = 0
-
-callbacks.Register( "Draw", "focusiguess", function()
-    for k,v in pairs (objects) do
-        if v.can_click and is_mouse_inside(v) then
-            v.mouse_inside = true
-        else
-            v.mouse_inside = false
-        end
-    end
-end)
-
-callbacks.Register( "Draw", "mouseclicks", function()
-    local state, tick = input.IsButtonPressed( MOUSE_LEFT )
-
-    if not state or last_clicked_tick == tick then
-        goto continue
-    end
-
-    for k,v in pairs (objects) do
-        if not v.can_click then
-            goto continue2
-        end
-
-        if is_mouse_inside(v) then
-            v.click_func()
-        end
-
-        ::continue2::
-    end
-
-    last_clicked_tick = tick
-    ::continue::
-end)
-
-callbacks.Register( "Draw", "render", function()
-    for k,v in pairs (objects) do
-        v.render_func()
-    end
 end)
