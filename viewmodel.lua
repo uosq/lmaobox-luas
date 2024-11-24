@@ -20,14 +20,16 @@ local selected_pitch, selected_yaw
 
 if engine.GetServerIP() then
     client.ChatPrintf("\x05Your aim method has been changed to PLAIN")
+    client.ChatPrintf("\x05When pressing your AIM KEY the script will turn on!!!")
 end
 
 printc(255, 100, 100, 255, "Your aim method has been changed to PLAIN")
 gui.SetValue("aim method", "plain")
+printc(255, 100, 100, 255, "When pressing your AIM KEY the script will turn on!!!")
 
 ---@param view ViewSetup
 local function renderview(view)
-    if input.IsButtonDown(getvalue("aim key")) then--and aimbot.GetAimbotTarget() > 0 then
+    if input.IsButtonDown(getvalue("aim key")) then
         if not debounce then
             debounce = true
             oldangle = engine.GetViewAngles()
