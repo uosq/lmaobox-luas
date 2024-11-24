@@ -1,14 +1,10 @@
+local crosshair_enable = true
 local crosshair_size = 6
 
 local color = draw.Color
 local line = draw.Line
+
 local register = callbacks.Register
-local get_target = aimbot.GetAimbotTarget
-local getbyindex = entities.GetByIndex
-local get_studio_model = models.GetStudioModel
-local worldtoscreen = client.WorldToScreen
-local width, height = draw.GetScreenSize()
-local vector3 = Vector3
 local getconvar = client.GetConVar
 local setconvar = client.SetConVar
 local getvalue = gui.GetValue
@@ -18,14 +14,14 @@ local debounce = false
 
 local selected_pitch, selected_yaw
 
+gui.SetValue("aim method", "plain")
+printc(255, 100, 100, 255, "Your aim method has been changed to PLAIN")
+printc(255, 100, 100, 255, "When pressing your AIM KEY the script will turn on!!!")
+
 if engine.GetServerIP() then
     client.ChatPrintf("\x05Your aim method has been changed to PLAIN")
     client.ChatPrintf("\x05When pressing your AIM KEY the script will turn on!!!")
 end
-
-printc(255, 100, 100, 255, "Your aim method has been changed to PLAIN")
-gui.SetValue("aim method", "plain")
-printc(255, 100, 100, 255, "When pressing your AIM KEY the script will turn on!!!")
 
 ---@param view ViewSetup
 local function renderview(view)
@@ -36,7 +32,7 @@ local function renderview(view)
             selected_pitch = oldangle.pitch
             selected_yaw = oldangle.yaw
         end
-            view.angles = EulerAngles(selected_pitch, selected_yaw, view.angles.z)
+        view.angles = EulerAngles(selected_pitch, selected_yaw, view.angles.z)
     elseif input.IsButtonReleased(gui.GetValue("aim key")) then
         engine.SetViewAngles(oldangle)
         view.angles = engine.GetViewAngles()
@@ -45,6 +41,18 @@ local function renderview(view)
 end
 
 callbacks.Register("RenderView", renderview)
+
+register("Unload", function()
+    setconvar("crosshair", 1)
+    gui.SetValue("aim method", "silent") -- "silent+" doesnt work for some reason
+    printc(100,255,100,255, "Your aim method has been changed to SILENT")
+    client.ChatPrintf("\x04Your aim method has been changed to SILENT")
+end)
+
+
+if not crosshair_enable then
+    return
+end
 
 if getconvar("crosshair") ~= 0 then
 	setconvar("crosshair", 0)
@@ -62,37 +70,13 @@ register("Draw", function()
     if engine.Con_IsVisible() or engine.IsGameUIVisible() or (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) then
         return
     end
-    local current_target = get_target()
-    if current_target ~= nil and current_target > 0 then
-        local player = getbyindex(current_target)
-        if not player or not player:IsValid() then return end
 
-        local model = player:GetModel()
-        local studioHdr = get_studio_model(model)
+    local me = entities.GetLocalPlayer();
+    if not me then return end
+    local source = me:GetAbsOrigin() + me:GetPropVector( "localdata", "m_vecViewOffset[0]" );
+    local destination = source + engine.GetViewAngles():Forward() * 1000;
+    local trace = engine.TraceLine( source, destination, MASK_SHOT_HULL );
 
-        local myHitBoxSet = player:GetPropInt("m_nHitboxSet")
-        local hitboxSet = studioHdr:GetHitboxSet(myHitBoxSet)
-        local hitboxes = hitboxSet:GetHitboxes()
-        local boneMatrices = player:SetupBones()
-        local hitbox = hitboxes[5] -- "chest" hitbox
-        local bone = hitbox:GetBone()
-
-        local boneMatrix = boneMatrices[bone]
-
-        if boneMatrix ~= nil then
-            local bonePos = vector3( boneMatrix[1][4], boneMatrix[2][4], boneMatrix[3][4] )
-            local screenPos = worldtoscreen(bonePos)
-            if not screenPos then return end
-            draw_crosshair(screenPos[1], screenPos[2])
-        end
-        else
-        draw_crosshair(width/2, height/2)
-    end
-end)
-
-register("Unload", function()
-    setconvar("crosshair", 1)
-    gui.SetValue("aim method", "silent") -- "silent+" doesnt work for some reason
-    printc(100,255,100,255, "Your aim method has been changed to SILENT")
-    client.ChatPrintf("\x04Your aim method has been changed to SILENT")
+    local screenPos = client.WorldToScreen(trace.endpos)
+    draw_crosshair(screenPos[1], screenPos[2])
 end)
