@@ -14,17 +14,29 @@ local debounce = false
 
 local selected_pitch, selected_yaw
 
-gui.SetValue("aim method", "plain")
-printc(255, 100, 100, 255, "Your aim method has been changed to PLAIN")
 printc(255, 100, 100, 255, "When pressing your AIM KEY the script will turn on!!!")
-
 if engine.GetServerIP() then
-    client.ChatPrintf("\x05Your aim method has been changed to PLAIN")
     client.ChatPrintf("\x05When pressing your AIM KEY the script will turn on!!!")
 end
 
+callbacks.Register("CreateMove", function ()
+    local silent = gui.GetValue("aim method") == "silent"
+    if not silent then return end
+    if aimbot.GetAimbotTarget() > 0 and input.IsButtonDown(gui.GetValue("aim key")) then
+        local me = entities.GetLocalPlayer()
+        if not me then return end
+
+        local pitch, yaw = me:GetPropVector("tfnonlocaldata","m_angEyeAngles[0]"):Unpack()
+        engine.SetViewAngles(EulerAngles(pitch, yaw, 0))
+
+    elseif aimbot.GetAimbotTarget() <= 0 and debounce then
+        engine.SetViewAngles(oldangle)
+    end
+end)
+
 ---@param view ViewSetup
 local function renderview(view)
+
     if input.IsButtonDown(getvalue("aim key")) then
         if not debounce then
             debounce = true
@@ -32,10 +44,12 @@ local function renderview(view)
             selected_pitch = oldangle.pitch
             selected_yaw = oldangle.yaw
         end
+
         view.angles = EulerAngles(selected_pitch, selected_yaw, view.angles.z)
+
     elseif input.IsButtonReleased(gui.GetValue("aim key")) then
+        view.angles = oldangle
         engine.SetViewAngles(oldangle)
-        view.angles = engine.GetViewAngles()
         debounce = false
     end
 end
@@ -43,10 +57,9 @@ end
 callbacks.Register("RenderView", renderview)
 
 register("Unload", function()
-    setconvar("crosshair", 1)
-    gui.SetValue("aim method", "silent") -- "silent+" doesnt work for some reason
-    printc(100,255,100,255, "Your aim method has been changed to SILENT")
-    client.ChatPrintf("\x04Your aim method has been changed to SILENT")
+    if getconvar("crosshair") == 0 then
+        setconvar("crosshair", 1)
+    end
 end)
 
 
@@ -78,5 +91,6 @@ register("Draw", function()
     local trace = engine.TraceLine( source, destination, MASK_SHOT_HULL );
 
     local screenPos = client.WorldToScreen(trace.endpos)
+    if not screenPos then return end
     draw_crosshair(screenPos[1], screenPos[2])
 end)
