@@ -1,5 +1,5 @@
 local settings = {
-	key = KEY_R, -- activates the script
+	key = KEY_LSHIFT, -- activates the script
 	look = MOUSE_RIGHT, -- makes your view go to where you are aiming (normal mode?)
 }
 
