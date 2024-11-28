@@ -1,7 +1,7 @@
 local settings = {
 	key = KEY_LSHIFT, -- activates the script
 	look = MOUSE_RIGHT, -- makes your view go to where you are aiming (normal mode?),
-	goback = KEY_R,
+	goback = KEY_R, -- recenters your aim to where you are looking
 }
 
 local crosshair_enable = true
