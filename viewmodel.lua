@@ -1,6 +1,7 @@
 local settings = {
 	key = KEY_LSHIFT, -- activates the script
-	look = MOUSE_RIGHT, -- makes your view go to where you are aiming (normal mode?)
+	look = MOUSE_RIGHT, -- makes your view go to where you are aiming (normal mode?),
+	goback = KEY_R,
 }
 
 local crosshair_enable = true
@@ -12,7 +13,6 @@ local line = draw.Line
 local register = callbacks.Register
 local getconvar = client.GetConVar
 local setconvar = client.SetConVar
-local getvalue = gui.GetValue
 
 local oldangle = EulerAngles()
 local debounce = false
@@ -43,6 +43,9 @@ local function renderview(view)
 			oldangle = engine.GetViewAngles()
 			selected_pitch = oldangle.pitch
 			selected_yaw = oldangle.yaw
+		elseif input.IsButtonDown(settings.goback) then
+			view.angles = oldangle
+			engine.SetViewAngles(oldangle)
 		else
 			view.angles = EulerAngles(selected_pitch, selected_yaw, view.angles.z)
 		end
