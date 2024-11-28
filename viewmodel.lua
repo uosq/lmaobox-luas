@@ -2,10 +2,9 @@ local settings = {
 	key = KEY_LSHIFT, -- activates the script
 	look = MOUSE_RIGHT, -- makes your view go to where you are aiming (normal mode?),
 	goback = KEY_R, -- recenters your aim to where you are looking
+	crosshair = true,
+	size = 6,
 }
-
-local crosshair_enable = true
-local crosshair_size = 6
 
 local color = draw.Color
 local line = draw.Line
@@ -13,6 +12,13 @@ local line = draw.Line
 local register = callbacks.Register
 local getconvar = client.GetConVar
 local setconvar = client.SetConVar
+local getlocalplayer = entities.GetLocalPlayer
+local world_to_screen = client.WorldToScreen
+local isbuttondown = input.IsButtonDown
+local isbuttonreleased = input.IsButtonReleased
+local isconsolevisible = engine.Con_IsVisible
+local isgameuivisible = engine.IsGameUIVisible
+local istakingscreenshot = engine.IsTakingScreenshot
 
 local oldangle = EulerAngles()
 local debounce = false
@@ -27,20 +33,34 @@ if engine:GetServerIP() then
 end
 
 local selected_pitch, selected_yaw = engine:GetViewAngles():Unpack()
+local screenPos
+
+---@param cmd UserCmd
+callbacks.Register("CreateMove", function (cmd)
+	local me = getlocalplayer()
+	if not me then return end
+	local source = me:GetAbsOrigin() + me:GetPropVector( "localdata", "m_vecViewOffset[0]" )
+	local destination = source + engine.GetViewAngles():Forward() * 1000
+	local trace = engine.TraceLine( source, destination, MASK_SHOT_HULL )
+	local localscreenPos = world_to_screen(trace.endpos)
+	screenPos = localscreenPos ~= nil and localscreenPos or screenPos
+end)
 
 ---@param view ViewSetup
 local function renderview(view)
-	if input.IsButtonDown(settings.key) then
+	if isbuttondown(settings.key) then
+		local viewangle = engine:GetViewAngles()
+
 		if not debounce then
 			debounce = true
-			oldangle = engine.GetViewAngles()
+			oldangle = viewangle
 			selected_pitch = oldangle.pitch
 			selected_yaw = oldangle.yaw
 		end
 
-		if input.IsButtonDown(settings.look) then
-			view.angles = engine:GetViewAngles()
-			oldangle = engine.GetViewAngles()
+		if isbuttondown(settings.look) then
+			view.angles = viewangle
+			oldangle = viewangle
 			selected_pitch = oldangle.pitch
 			selected_yaw = oldangle.yaw
 		elseif input.IsButtonDown(settings.goback) then
@@ -50,7 +70,7 @@ local function renderview(view)
 			view.angles = EulerAngles(selected_pitch, selected_yaw, view.angles.z)
 		end
 
-	elseif input.IsButtonReleased(settings.key) then
+	elseif isbuttonreleased(settings.key) then
 		view.angles = oldangle
 		engine.SetViewAngles(oldangle)
 		debounce = false
@@ -69,9 +89,7 @@ register("Unload", function()
 	printc(150, 255, 150, 255, "Your aim method has been changed to " .. tostring(old_method))
 end)
 
-if not crosshair_enable then
-	return
-end
+if not settings.crosshair then return end
 
 if getconvar("crosshair") ~= 0 then
 	setconvar("crosshair", 0)
@@ -79,24 +97,17 @@ end
 
 local function draw_crosshair (x, y)
 	color(255,255,255,255)
-	line(x, y-crosshair_size/2 - 10, x, y+crosshair_size/2 - 10) -- top
-	line(x-crosshair_size/2 - 10, y, x+crosshair_size/2 - 10, y) -- left
-	line(x+crosshair_size/2 + 10, y, x-crosshair_size/2 + 10, y) -- right
-	line(x, y+crosshair_size/2 + 10, x, y-crosshair_size/2 + 10) -- top
+	line(x, y-settings.size/2 - 10, x, y+settings.size/2 - 10) -- top
+	line(x-settings.size/2 - 10, y, x+settings.size/2 - 10, y) -- left
+	line(x+settings.size/2 + 10, y, x-settings.size/2 + 10, y) -- right
+	line(x, y+settings.size/2 + 10, x, y-settings.size/2 + 10) -- bottom
 end
 
 register("Draw", function()
-	if engine.Con_IsVisible() or engine.IsGameUIVisible() or (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) then
+	if isconsolevisible() or isgameuivisible() or (gui.GetValue("clean screenshots") == 1 and istakingscreenshot()) then
 		return
 	end
-
-	local me = entities.GetLocalPlayer();
-	if not me then return end
-	local source = me:GetAbsOrigin() + me:GetPropVector( "localdata", "m_vecViewOffset[0]" );
-	local destination = source + engine.GetViewAngles():Forward() * 1000;
-	local trace = engine.TraceLine( source, destination, MASK_SHOT_HULL );
-
-	local screenPos = client.WorldToScreen(trace.endpos)
-	if not screenPos then return end
-	draw_crosshair(screenPos[1], screenPos[2])
+	if screenPos then
+		draw_crosshair(screenPos[1], screenPos[2])
+	end
 end)
