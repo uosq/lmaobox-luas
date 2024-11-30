@@ -21,7 +21,7 @@ gui.SetValue("crit hack indicator size", 0)
 local line = draw.Line
 local should_draw_hud = true
 
-print("You can't type in chat for now :(")
+local typing = false
 
 local function draw_crosshair (x, y)
 	line(x, y-settings.size/2 - 10, x, y+settings.size/2 - 10) -- top
@@ -42,7 +42,7 @@ local color = {
 local last_tick = 0
 callbacks.Register("CreateMove", function ()
 	local state, tick = input.IsButtonPressed(E_ButtonCode.KEY_I)
-	if state and tick ~= last_tick then
+	if state and tick ~= last_tick and not typing then
 		last_tick = tick
 		should_draw_hud = not should_draw_hud
 		if not should_draw_hud then
@@ -180,7 +180,10 @@ local function hud()
 		draw.FilledRect(centerx - width, lastHeight, centerx + width, lastHeight + height)
 
 		--- actual bar
-		local percentage = weapon:GetCritTokenBucket()/1000 -- 1000 is max
+		local critbucket = weapon:GetCritTokenBucket()
+		if not critbucket then return end
+
+		local percentage = critbucket/1000 -- 1000 is max
 		draw.Color(150, 150, 255, 255)
 		draw.FilledRectFade(centerx - width + 2, lastHeight + 2, math.floor(centerx - width + (width * percentage * 2) - 2), lastHeight + height - 2, 150, 10, false)
 		local str = string.format("CRIT BUCKET: %.1f", weapon:GetCritTokenBucket())
@@ -205,6 +208,8 @@ local killfeed_deaths = {
 
 local function draw_killfeed()
 	if not settings.killfeed then return end
+	if not should_draw_hud then return end
+
 	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) or engine.IsGameUIVisible() or engine.Con_IsVisible() then
 		return
 	end
@@ -272,143 +277,20 @@ end
 ---@type table<number, {player: Entity, message: string, tick_to_disappear: number, type: "TF_Chat_All"|"TF_Chat_Team"}>
 local chat_messages = {}
 
-local typing = false
-local typing_tick = 0
-local textbox_text = ""
-
-local last_tick_pressed = 0
-
-local Acceptable_keys = {
-   KEY_0 = 1,
-   KEY_1 = 2,
-   KEY_2 = 3,
-   KEY_3 = 4,
-   KEY_4 = 5,
-   KEY_5 = 6,
-   KEY_6 = 7,
-   KEY_7 = 8,
-   KEY_8 = 9,
-   KEY_9 = 10,
-   KEY_A = 11,
-   KEY_B = 12,
-   KEY_C = 13,
-   KEY_D = 14,
-   KEY_E = 15,
-   KEY_F = 16,
-   KEY_G = 17,
-   KEY_H = 18,
-   KEY_I = 19,
-   KEY_J = 20,
-   KEY_K = 21,
-   KEY_L = 22,
-   KEY_M = 23,
-   KEY_N = 24,
-   KEY_O = 25,
-   KEY_P = 26,
-   KEY_Q = 27,
-   KEY_R = 28,
-   KEY_S = 29,
-   KEY_T = 30,
-   KEY_U = 31,
-   KEY_V = 32,
-   KEY_W = 33,
-   KEY_X = 34,
-   KEY_Y = 35,
-   KEY_Z = 36,
-   KEY_LBRACKET = 53,
-   KEY_RBRACKET = 54,
-   KEY_SEMICOLON = 55,
-   KEY_APOSTROPHE = 56,
-   KEY_BACKQUOTE = 57,
-   KEY_COMMA = 58,
-   KEY_PERIOD = 59,
-   KEY_SLASH = 60,
-   KEY_BACKSLASH = 61,
-   KEY_MINUS = 62,
-   KEY_EQUAL = 63,
-   KEY_ENTER = 64,
-   KEY_SPACE = 65,
-   KEY_BACKSPACE = 66,
-   KEY_TAB = 67,
-   KEY_LSHIFT = 79,
-   KEY_RSHIFT = 80,
-   KEY_UP = 88,
-   --KEY_LEFT = 89, i want to implement this but im lazy
-   KEY_DOWN = 90,
-   --KEY_RIGHT = 91, i want to implement this but im lazy
-}
-
-callbacks.Register("Draw", "textbox_handling", function ()
-	if not settings.chat then return end
-	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) or engine.IsGameUIVisible() or engine.Con_IsVisible() then
-		return
-	end
-   if typing then
-      for key, value in pairs (Acceptable_keys) do
-         local state, tick = input.IsButtonPressed(value)
-         if state and tick ~= last_tick_pressed then
-				last_tick_pressed = tick
-            local char = string.gsub(tostring(key), "KEY_", "")
-            if char == "LBRACKET" then
-               textbox_text = textbox_text .. "["
-            elseif char == "RBRACKET" then
-               textbox_text = textbox_text .. "]"
-            elseif char == "SEMICOLON" then
-               textbox_text = textbox_text .. ";"
-            elseif char == "APOSTROPHE" then
-               textbox_text = textbox_text .. "´"
-            elseif char == "BACKQUOTE" then
-               textbox_text = textbox_text .. "`"
-            elseif char == "COMMA" then
-               textbox_text = textbox_text .. ","
-            elseif char == "PERIOD" then
-               textbox_text = textbox_text .. "."
-            elseif char == "SLASH" then
-               textbox_text = textbox_text .. "/"
-            elseif char == "BACKSLASH" then
-               textbox_text = textbox_text .. "\\"
-            elseif char == "MINUS" then
-               textbox_text = textbox_text .. "-"
-            elseif char == "EQUAL" then
-               textbox_text = textbox_text .. "="
-            elseif char == "SPACE" then
-               textbox_text = textbox_text .. " "
-            elseif char == "BACKSPACE" then
-               textbox_text = textbox_text:sub(1, -2)
-            elseif char == "TAB" then
-               textbox_text = textbox_text .. string.char(9)
-            else
-               if input.IsButtonDown(E_ButtonCode.KEY_RSHIFT) or input.IsButtonDown(KEY_LSHIFT) then
-                  textbox_text = textbox_text .. string.upper(char)
-               else
-                  textbox_text = textbox_text .. string.lower(char)
-               end
-            end
-         end
-      end
-   end
-end)
-
 local function draw_chat()
 	if not settings.chat then return end
 	if not should_draw_hud then return end
+
 	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) or engine.IsGameUIVisible() or engine.Con_IsVisible() then
 		return
 	end
 
 	local lastHeight = 150
 
-	do
-		-- background               x   y           w    h
-		local x, y, width, height = 20, lastHeight, 550, 250
-		draw.Color(20, 20, 20, 150)
-		draw.FilledRect(x, lastHeight, x + width, y + height)
-	end
-
 	for pos, chat_message in ipairs(chat_messages) do
 		draw.SetFont(chat_font)
 		local str = ""
-		if chat_message.type == "TF_Chat_All" then -- seriously wtf why dont we just have a ChatType.Chat or something???
+		if chat_message.type == "TF_Chat_All" then -- seriously wtf why dont we just have a ChatType.All or something???
 			str = string.format("[%s]: %s", chat_message.player:GetName(), chat_message.message)
 		else
 			str = string.format("(Team) [%s]: %s", chat_message.player:GetName(), chat_message.message)
@@ -418,7 +300,9 @@ local function draw_chat()
 		local x = 30
 		local y = lastHeight + textheight
 
-		draw.Color(255, 255, 255, 200)
+		--- fuck this in particular im not gonna draw each word separately that i want to color
+		local msg_color = color[chat_message.player:GetTeamNumber()]
+		draw.Color(msg_color[1], msg_color[2], msg_color[3], msg_color[4])
 		draw.TextShadow(x, y, str)
 		lastHeight = lastHeight + textheight + 5
 
@@ -426,25 +310,6 @@ local function draw_chat()
 			table.remove(chat_messages, pos)
 		end
 	end
-
-	-- draw textbox text
-	local state, tick = input.IsButtonPressed(KEY_F)
-	if not typing and state and tick ~= typing_tick then
-		typing_tick = tick
-		typing = true
-		input.SetMouseInputEnabled(true)
-		textbox_text = ""
-	
-	elseif typing and input.IsButtonPressed(E_ButtonCode.KEY_ENTER or E_ButtonCode.KEY_PAD_ENTER) then
-		typing = false
-		typing_tick = 0
-		client.ChatSay(textbox_text)
-		textbox_text = ""
-		input.SetMouseInputEnabled(false)
-	end
-	draw.SetFont(font)
-	draw.Color(255,255,255,255)
-	draw.TextShadow(20, 150 + 250, textbox_text)
 end
 
 ---@param msg UserMessage
@@ -454,6 +319,7 @@ local function chat_msgs(msg)
 		bf:SetCurBit(8)
 
 		local chatType = bf:ReadString(256)
+		chatType = string.sub(chatType, 2) -- skipping that fucking character
 		local playerName = bf:ReadString(256)
 		local message = bf:ReadString(256)
 
@@ -468,11 +334,25 @@ local function chat_msgs(msg)
 		end
 	end
 end
+callbacks.Register("DispatchUserMessage", chat_msgs)
+callbacks.Register("Draw", draw_chat)
+
+callbacks.Register("CreateMove", function ()
+	if not typing and (input.IsButtonDown(KEY_Y) or input.IsButtonDown(KEY_U) or input.IsButtonDown(KEY_P)) and should_draw_hud then
+		typing = true
+		should_draw_hud = false
+		client.Command("cl_drawhud 1", true)
+		return
+	end
+
+	if typing and input.IsButtonDown(E_ButtonCode.KEY_ENTER) and not should_draw_hud then
+		typing = false
+		should_draw_hud = true
+		client.Command("cl_drawhud 0", true)
+	end
+end)
 
 callbacks.Register("Draw", hud)
-
-callbacks.Register("Draw", draw_chat)
-callbacks.Register("DispatchUserMessage", chat_msgs)
 
 callbacks.Register("FireGameEvent", killfeed)
 callbacks.Register("Draw", draw_killfeed)
