@@ -21,8 +21,6 @@ gui.SetValue("crit hack indicator size", 0)
 local line = draw.Line
 local should_draw_hud = true
 
-local typing = false
-
 local function draw_crosshair (x, y)
 	line(x, y-settings.size/2 - 10, x, y+settings.size/2 - 10) -- top
 	line(x-settings.size/2 - 10, y, x+settings.size/2 - 10, y) -- left
@@ -42,7 +40,7 @@ local color = {
 local last_tick = 0
 callbacks.Register("CreateMove", function ()
 	local state, tick = input.IsButtonPressed(E_ButtonCode.KEY_I)
-	if state and tick ~= last_tick and not typing then
+	if state and tick ~= last_tick and not engine.IsChatOpen() then
 		last_tick = tick
 		should_draw_hud = not should_draw_hud
 		if not should_draw_hud then
@@ -50,6 +48,14 @@ callbacks.Register("CreateMove", function ()
 		else
 			client.Command("cl_drawhud 0", true)
 		end
+	end
+
+	if engine.IsChatOpen() and client.GetConVar("cl_drawhud") == 0 then
+		client.Command("cl_drawhud 1", true)
+		should_draw_hud = false
+	elseif not engine.IsChatOpen() and client.GetConVar("cl_drawhud") == 1 then
+		should_draw_hud = true
+		client.Command("cl_drawhud 0", true)
 	end
 end)
 
@@ -230,7 +236,6 @@ local function draw_killfeed()
 			death_string = string.format("%s died a horrible death :(", death.victim:GetName())
 		end
 
-		
 		draw.SetFont(font)
 		local textwidth, textheight = draw.GetTextSize(death_string)
 
@@ -270,7 +275,7 @@ local function killfeed(event)
 		local current_tick = globals.TickCount()
 		local hud_deathnotice_time = client.GetConVar("hud_deathnotice_time")
 
-		killfeed_deaths[#killfeed_deaths+1] = {victim = victim, attacker = attacker, assister = assister, tick_to_disappear = current_tick + (hud_deathnotice_time * 66)}
+		killfeed_deaths[#killfeed_deaths+1] = {victim = victim, attacker = attacker, assister = assister, tick_to_disappear = current_tick + (hud_deathnotice_time * 66 * 2)}
 	end
 end
 
@@ -300,10 +305,14 @@ local function draw_chat()
 		local x = 30
 		local y = lastHeight + textheight
 
+		--- background
+		draw.Color(255, 255, 255, 255)
+		draw.FilledRect(x - 10, lastHeight + textheight, x + textwidth + 10, lastHeight + textheight + textheight)
+
 		--- fuck this in particular im not gonna draw each word separately that i want to color
 		local msg_color = color[chat_message.player:GetTeamNumber()]
 		draw.Color(msg_color[1], msg_color[2], msg_color[3], msg_color[4])
-		draw.TextShadow(x, y, str)
+		draw.Text(x, y, str)
 		lastHeight = lastHeight + textheight + 5
 
 		if chat_message.tick_to_disappear <= globals.TickCount() then
@@ -336,21 +345,6 @@ local function chat_msgs(msg)
 end
 callbacks.Register("DispatchUserMessage", chat_msgs)
 callbacks.Register("Draw", draw_chat)
-
-callbacks.Register("CreateMove", function ()
-	if not typing and (input.IsButtonDown(KEY_Y) or input.IsButtonDown(KEY_U) or input.IsButtonDown(KEY_P)) and should_draw_hud then
-		typing = true
-		should_draw_hud = false
-		client.Command("cl_drawhud 1", true)
-		return
-	end
-
-	if typing and input.IsButtonDown(E_ButtonCode.KEY_ENTER) and not should_draw_hud then
-		typing = false
-		should_draw_hud = true
-		client.Command("cl_drawhud 0", true)
-	end
-end)
 
 callbacks.Register("Draw", hud)
 
