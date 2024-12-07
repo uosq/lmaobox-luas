@@ -1,0 +1,60 @@
+{
+   "repository": {
+      "name": "Misc scripts",
+      "description": "Has random stuff i made",
+      "last_updated": "07/12/2024",
+      "author": "navet"
+   },
+   "scripts": [
+      {
+         "name": "Viewmodel Aimbot",
+         "author": "navet",
+         "version": "1.0",
+         "description": "Locks your camera when you press the key so your viewmodel looks where you are shooting",
+         "filename": "viewmodel.lua",
+         "tags": ["misc", "visual"],
+         "dependencies": [],
+         "last_updated": "28/11/2024"
+      },
+      {
+         "name": "Sentry Mode",
+         "author": "navet",
+         "version": "1.1",
+         "description": "Makes you move your camera like a sentry",
+         "filename": "sentry.lua",
+         "tags": ["misc", "aimbot"],
+         "dependencies": [],
+         "last_updated": "26/07/2024"
+      },
+      {
+         "name": "Custom HUD",
+         "author": "navet",
+         "version": "1.2",
+         "description": "Its a custom hud",
+         "filename": "custom hud.lua",
+         "tags": ["visual"],
+         "dependencies": [],
+         "last_updated": "05/12/2024"
+      },
+      {
+         "name": "Controller Assist",
+         "author": "navet",
+         "version": "1.0",
+         "description": "Useful binds for XBOX controllers (maybe PS too?)",
+         "filename": "controller helper.lua",
+         "tags": ["misc", "assist"],
+         "dependencies": [],
+         "last_updated": "30/11/2024"
+      },
+      {
+         "name": "Custom Crosshair",
+         "author": "navet",
+         "version": "1.5",
+         "description": "",
+         "filename": "crosshair.lua",
+         "tags": ["misc"],
+         "dependencies": [],
+         "last_updated": "04/12/2024"
+      }
+   ]
+}
