@@ -1,5 +1,7 @@
 local alib = require("alib")
 
+local ui_visible = true -- disable ui
+
 local right = {
     x = 5, y = 5,
     width = 100,
@@ -65,7 +67,7 @@ local function render(view)
 end
 
 callbacks.Register("Draw", function (param)
-    if engine.Con_IsVisible() or engine.IsGameUIVisible() then return end
+    if engine.Con_IsVisible() or engine.IsGameUIVisible() or not ui_visible then return end
     alib.objects.window(window.width, window.height, window.x, window.y)
     alib.objects.slider(right.width, right.height, right.x + window.y, right.y + window.y, right.min, right.max, right.value) -- right
     alib.objects.slider(up.width, up.height, up.x + window.x, up.y + window.y, up.min, up.max, up.value) -- up
