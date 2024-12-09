@@ -34,23 +34,20 @@ local window = {
     width = 110,
     height = 80,
 }
+
 ---@param usercmd UserCmd
 callbacks.Register("CreateMove", function (usercmd)
-    right.isMouseInside = alib.math.isMouseInside(window, right)
-    up.isMouseInside = alib.math.isMouseInside(window, up)
-    dist.isMouseInside = alib.math.isMouseInside(window, dist)
- 
-    if input.IsButtonDown(MOUSE_LEFT) and right.isMouseInside then
+    if input.IsButtonDown(MOUSE_LEFT) and alib.math.isMouseInside(window, right) then
        local value = alib.math.GetNewSliderValue(window, right, right.min, right.max)
        right.value = value
     end
 
-    if input.IsButtonDown(MOUSE_LEFT) and up.isMouseInside then
+    if input.IsButtonDown(MOUSE_LEFT) and alib.math.isMouseInside(window, up) then
         local value = alib.math.GetNewSliderValue(window, up, up.min, up.max)
         up.value = value
      end
 
-     if input.IsButtonDown(MOUSE_LEFT) and dist.isMouseInside then
+     if input.IsButtonDown(MOUSE_LEFT) and alib.math.isMouseInside(window, dist) then
         local value = alib.math.GetNewSliderValue(window, dist, dist.min, dist.max)
         dist.value = value
      end
