@@ -69,9 +69,9 @@ end
 callbacks.Register("Draw", function (param)
     if engine.Con_IsVisible() or engine.IsGameUIVisible() or not ui_visible then return end
     alib.objects.window(window.width, window.height, window.x, window.y)
-    alib.objects.slider(right.width, right.height, right.x + window.y, right.y + window.y, right.min, right.max, right.value) -- right
-    alib.objects.slider(up.width, up.height, up.x + window.x, up.y + window.y, up.min, up.max, up.value) -- up
-    alib.objects.slider(dist.width, dist.height, dist.x + window.x, dist.y + window.y, dist.min, dist.max, dist.value) -- dist
+    alib.objects.sliderfade(right.width, right.height, right.x + window.y, right.y + window.y, right.min, right.max, right.value, 150, 255, true) -- right
+    alib.objects.sliderfade(up.width, up.height, up.x + window.x, up.y + window.y, up.min, up.max, up.value, 150, 255, true) -- up
+    alib.objects.sliderfade(dist.width, dist.height, dist.x + window.x, dist.y + window.y, dist.min, dist.max, dist.value, 150, 255, true) -- dist
 end)
 
 callbacks.Register("RenderView", render)
