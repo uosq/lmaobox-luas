@@ -55,6 +55,16 @@
          "tags": ["misc"],
          "dependencies": [],
          "last_updated": "04/12/2024"
+      },
+      {
+         "name": "Thirdperson Camera Offset",
+         "author": "navet",
+         "version": "1.0",
+         "description": "Changes thirdperson's camera xyz offset",
+         "filename": "thirdperson offset.lua",
+         "tags": ["visual"],
+         "dependencies": ["alib.lua"],
+         "last_updated": "09/12/2024"
       }
    ]
 }
