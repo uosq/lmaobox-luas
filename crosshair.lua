@@ -22,8 +22,8 @@ local function draw_crosshair (x, y)
 end
 
 local color = {
-	[E_TeamNumber.TEAM_BLU] = {255, 150, 150, 255},
-	[E_TeamNumber.TEAM_RED] = {150, 150, 255, 255},
+	[E_TeamNumber.TEAM_BLU] = {255, 50, 50, 255}, -- tao invertidos esse é o RED
+	[E_TeamNumber.TEAM_RED] = {0, 251, 255, 255},
 	[E_TeamNumber.TEAM_SPECTATOR] = {255,255,255,255},
 	[E_TeamNumber.TEAM_UNASSIGNED] = {255,255,255,255}
 }
@@ -36,7 +36,7 @@ register("Draw", function()
     local me = entities.GetLocalPlayer();
     if not me then return end
     local source = me:GetAbsOrigin() + me:GetPropVector( "localdata", "m_vecViewOffset[0]" );
-    local destination = source + engine.GetViewAngles():Forward() * 1000;
+    local destination = source + engine.GetViewAngles():Forward() * 1000
     local trace = engine.TraceLine( source, destination, MASK_SHOT_HULL );
 
     local screenPos = client.WorldToScreen(trace.endpos)
