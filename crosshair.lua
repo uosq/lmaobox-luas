@@ -1,4 +1,4 @@
-local alib = require("source")
+local alib = require("alib")
 alib.settings.font = draw.CreateFont("TF2 BUILD", 12, 1000)
 
 local width, height = draw.GetScreenSize()
