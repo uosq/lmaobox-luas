@@ -1,3 +1,11 @@
+local alib = require("source")
+alib.settings.window.title.fade.enabled = true
+alib.settings.window.outline.thickness = 0
+alib.settings.checkbox.shadow.offset = 0
+
+local screenw, screenh = draw.GetScreenSize()
+local centerx, centery = math.floor(screenw/2), math.floor(screenh/2)
+
 local settings = {
 	health = true,
 	ammo = true,
@@ -5,28 +13,80 @@ local settings = {
 	warp = true,
 	killfeed = true,
 	chat = true,
-	crosshair = true,
-	size = 6
+	metal = true,
 }
+
+local window = {
+	x = centerx - 350/2, y = centery - 370/2,
+	width = 350,
+	height = 370,
+}
+
+--- i dont know why, i dont want to know why, but my piece of garbage code doesnt detect mouse clicks correctly
+--- if i dont manually make the checkbox
+local health_checkbox = {
+	x = 10, y = 10,
+	width = 50, height = 50,
+	checked = settings.health
+}
+
+local ammo_checkbox = {
+	x = 10, y = 70,
+	width = 50, height = 50,
+	checked = settings.ammo
+}
+
+local crit_checkbox = {
+	x = 10, y = 130,
+	width = 50, height = 50,
+	checked = settings.crit
+}
+
+local warp_checkbox = {
+	x = 10, y = 190,
+	width = 50, height = 50,
+	checked = settings.warp
+}
+
+local killfeed_checkbox = {
+	x = 10, y = 250,
+	width = 50, height = 50,
+	checked = settings.killfeed
+}
+
+local chat_checkbox = {
+	x = 10, y = 310,
+	width = 50, height = 50,
+	checked = settings.chat
+}
+
+local classes = {"scout", "soldier", "pyro", "demoman", "heavyweapons", "engineer", "medic", "sniper", "spy", "random"}
+local list = {
+   x = 110, y = 10, width = 180,
+   items = classes,
+   selected_item_index = 1,
+}
+
+--- info panel
+
+local info_window = {
+	x = 5, y = centery - 50/2,
+	width = 120, height = 50
+}
+
+--- info panel end
 
 local font = draw.CreateFont("TF2 BUILD", 24, 1000)
 local warp_font = draw.CreateFont("TF2 BUILD", 18, 1000)
 local chat_font = draw.CreateFont("TF2 BUILD", 12, 1000)
+alib.settings.font = warp_font
 
 client.RemoveConVarProtection("cl_drawhud")
 client.Command("cl_drawhud 0", true)
 gui.SetValue("double tap indicator size", 0)
 gui.SetValue("crit hack indicator size", 0)
 
-local line = draw.Line
 local should_draw_hud = true
-
-local function draw_crosshair (x, y)
-	line(x, y-settings.size/2 - 10, x, y+settings.size/2 - 10) -- top
-	line(x-settings.size/2 - 10, y, x+settings.size/2 - 10, y) -- left
-	line(x+settings.size/2 + 10, y, x-settings.size/2 + 10, y) -- right
-	line(x, y+settings.size/2 + 10, x, y-settings.size/2 + 10) -- top
-end
 
 local TEAM_BLU, TEAM_RED = 3, 2
 
@@ -64,9 +124,6 @@ local function hud()
 	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) or engine.IsGameUIVisible() or engine.Con_IsVisible() then
 		return
 	end
-
-	local screenw, screenh = draw.GetScreenSize()
-	local centerx, centery = screenw/2, screenh/2
 
 	local localplayer = entities:GetLocalPlayer()
 	if not localplayer then return end
@@ -109,12 +166,6 @@ local function hud()
 		draw.Color(healthColor.r, healthColor.g, healthColor.b, 255)
 		draw.SetFont(font)
 		draw.TextShadow(centerx - math.floor(healthSizeX/2), lastHeight, health_str)
-	
-		-- crosshair (USES HEALTH COLOR)
-		if settings.crosshair then
-			draw.Color(healthColor.r, healthColor.g, healthColor.b, 255)
-			draw_crosshair(screenw/2, screenh/2)
-		end
 	end
 
 	-- ammo
@@ -146,6 +197,20 @@ local function hud()
 	
 				lastHeight = lastHeight + meleeH
 				draw.TextShadow(centerx - math.floor(meleeW/2), lastHeight, melee_str)
+		end
+	end
+
+	if settings.metal then
+		local isEngineer = localplayer:GetPropInt("m_iClass") == E_Character.TF2_Engineer
+		if isEngineer then
+			local ammoDataTable = localplayer:GetPropDataTableInt("m_iAmmo")
+			local metal_quantity = ammoDataTable[4]
+			local metal_str = string.format("%i/200", metal_quantity)
+			local metalW, metalH = draw.GetTextSize(metal_str)
+			draw.SetFont(font)
+			draw.Color(255, 255, 255, 255)
+			lastHeight = lastHeight + metalH
+			draw.TextShadow(centerx - math.floor(metalW/2), lastHeight, metal_str)
 		end
 	end
 
@@ -197,6 +262,26 @@ local function hud()
 		draw.SetFont(warp_font)
 		draw.Color(255, 255, 255, 150)
 		draw.Text(centerx - math.floor(textwidth/2), lastHeight + 2, str)
+	end
+
+	--- engineer specific (sentry, dispenser, etc)
+	local isEngineer = localplayer:GetPropInt("m_iClass") == E_Character.TF2_Engineer
+	if isEngineer then
+		local hasSentry, hasDispenser, hasTeleEntrance, hasTeleExit = false, false, false, false
+		local sentries = entities.FindByClass("CObjectSentrygun")
+		local dispensers = entities.FindByClass("CObjectDispenser")
+		for k, sentry in pairs(sentries) do
+			if sentry:GetTeamNumber() == localplayer:GetTeamNumber() and sentry:GetPropEntity("m_hBuilder") == localplayer then
+				hasSentry = true
+				return
+			end
+		end
+		for k, dispenser in pairs(dispensers) do
+			if dispenser:GetTeamNumber() == localplayer:GetTeamNumber() and dispenser:GetPropEntity("m_hBuilder") == localplayer then
+				hasDispenser = true
+				return
+			end
+		end
 	end
 end
 
@@ -260,6 +345,8 @@ end
 -- damage logger / killfeed
 ---@param event GameEvent
 local function killfeed(event)
+	if not settings.chat then return end
+	if not should_draw_hud then return end
 	if event:GetName() == "player_death" then
 		local victim = entities.GetByUserID(event:GetInt("userid"))
 		if not victim then return end
@@ -343,16 +430,157 @@ local function chat_msgs(msg)
 		end
 	end
 end
+
+local function draw_escape_menu()
+	draw.Color(0, 0, 0, 150)
+	draw.FilledRect(0, 0, screenw, screenh)
+
+	--- background
+	alib.objects.window(window.width, window.height, window.x, window.y, "settings")
+
+	--- i wish i could automate this, but for some reason it doesnt work like it should, but hey at least more control :)
+	--- health
+	alib.objects.checkbox(health_checkbox.width, health_checkbox.height, health_checkbox.x + window.x, health_checkbox.y + window.y, health_checkbox.checked)
+	do
+		draw.SetFont(warp_font)
+		local tw, th = draw.GetTextSize("health")
+		draw.Color(255, 255, 255, 255)
+		draw.TextShadow(health_checkbox.x + window.x + health_checkbox.width/2 - math.floor(tw/2), health_checkbox.y + window.y + health_checkbox.height/2 - math.floor(th/2), "health")
+	end
+
+	--- ammo
+	alib.objects.checkbox(ammo_checkbox.width, ammo_checkbox.height, ammo_checkbox.x + window.x, ammo_checkbox.y + window.y, ammo_checkbox.checked)
+	do
+		draw.SetFont(warp_font)
+		local tw, th = draw.GetTextSize("ammo")
+		draw.Color(255, 255, 255, 255)
+		draw.TextShadow(ammo_checkbox.x + window.x + ammo_checkbox.width/2 - math.floor(tw/2), ammo_checkbox.y + window.y + ammo_checkbox.height/2 - math.floor(th/2), "ammo")
+	end
+
+	--- crit
+	alib.objects.checkbox(crit_checkbox.width, crit_checkbox.height, crit_checkbox.x + window.x, crit_checkbox.y + window.y, crit_checkbox.checked)
+	do
+		draw.SetFont(warp_font)
+		local tw, th = draw.GetTextSize("crit")
+		draw.Color(255, 255, 255, 255)
+		draw.TextShadow(crit_checkbox.x + window.x + crit_checkbox.width/2 - math.floor(tw/2), crit_checkbox.y + window.y + crit_checkbox.height/2 - math.floor(th/2), "crit")
+	end
+
+	--- warp
+	alib.objects.checkbox(warp_checkbox.width, warp_checkbox.height, warp_checkbox.x + window.x, warp_checkbox.y + window.y, warp_checkbox.checked)
+	do
+		draw.SetFont(warp_font)
+		local tw, th = draw.GetTextSize("warp")
+		draw.Color(255, 255, 255, 255)
+		draw.TextShadow(warp_checkbox.x + window.x + warp_checkbox.width/2 - math.floor(tw/2), warp_checkbox.y + window.y + warp_checkbox.height/2 - math.floor(th/2), "warp")
+	end
+
+	--- killfeed
+	alib.objects.checkbox(killfeed_checkbox.width, killfeed_checkbox.height, killfeed_checkbox.x + window.x, killfeed_checkbox.y + window.y, killfeed_checkbox.checked)
+	do
+		draw.SetFont(warp_font)
+		local tw, th = draw.GetTextSize("killfeed")
+		draw.Color(255, 255, 255, 255)
+		draw.TextShadow(killfeed_checkbox.x + window.x + killfeed_checkbox.width/2 - math.floor(tw/2), killfeed_checkbox.y + window.y + killfeed_checkbox.height/2 - math.floor(th/2), "killfeed")
+	end
+
+	--- chat
+	alib.objects.checkbox(chat_checkbox.width, chat_checkbox.height, chat_checkbox.x + window.x, chat_checkbox.y + window.y, chat_checkbox.checked)
+	do
+		draw.SetFont(warp_font)
+		local tw, th = draw.GetTextSize("chat")
+		draw.Color(255, 255, 255, 255)
+		draw.TextShadow(chat_checkbox.x + window.x + chat_checkbox.width/2 - math.floor(tw/2), chat_checkbox.y + window.y + chat_checkbox.height/2 - math.floor(th/2), "chat")
+	end
+
+	--- class switcher
+	alib.objects.list(list.width, list.x + window.x, list.y + window.y, list.selected_item_index, list.items)
+end
+
+local last_tick = 0
+--- this is bs it doesnt work without doing it manually
+local function mouse_input()
+	if not engine.IsGameUIVisible() and not gui.IsMenuOpen() then return end
+	local state, tick = input.IsButtonPressed(E_ButtonCode.MOUSE_LEFT)
+	if state and tick ~= last_tick then
+		if alib.math.isMouseInside(window, health_checkbox) then
+			health_checkbox.checked = not health_checkbox.checked
+			settings.health = health_checkbox.checked
+		end
+
+		if alib.math.isMouseInside(window, ammo_checkbox) then
+			ammo_checkbox.checked = not ammo_checkbox.checked
+			settings.ammo = ammo_checkbox.checked
+		end
+
+		if alib.math.isMouseInside(window, crit_checkbox) then
+			crit_checkbox.checked = not crit_checkbox.checked
+			settings.crit = crit_checkbox.checked
+		end
+
+		if alib.math.isMouseInside(window, warp_checkbox) then
+			warp_checkbox.checked = not warp_checkbox.checked
+			settings.warp = warp_checkbox.checked
+		end
+
+		if alib.math.isMouseInside(window, killfeed_checkbox) then
+			killfeed_checkbox.checked = not killfeed_checkbox.checked
+			settings.killfeed = killfeed_checkbox.checked
+		end
+
+		if alib.math.isMouseInside(window, chat_checkbox) then
+			chat_checkbox.checked = not chat_checkbox.checked
+			settings.chat = chat_checkbox.checked
+		end
+
+		for i,v in ipairs (list.items) do
+			local is_mouse_inside = alib.math.isMouseInsideItem(window, list, i)
+			if is_mouse_inside and input.IsButtonDown(E_ButtonCode.MOUSE_LEFT) then
+				list.selected_item_index = i
+				client.Command(string.format("join_class %s", v), true)
+			end
+		end
+
+		last_tick = tick
+	end
+end
+
+--- load crosshair
+local content = http.Get("https://raw.githubusercontent.com/uosq/lmaobox-luas/refs/heads/main/crosshair.lua")
+filesystem.CreateDirectory("navet custom hud")
+io.output("navet custom hud/crosshair.lua")
+io.write(content)
+io.flush()
+io.close(io.stdout)
+LoadScript("navet custom hud/crosshair.lua")
+callbacks.Register("Unload", function ()
+	UnloadScript("navet custom hud/crosshair.lua")
+end)
+
+local function hud_manager()
+	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) then-- or engine.IsGameUIVisible() or engine.Con_IsVisible() then
+		return
+	elseif engine.IsGameUIVisible() and gui.IsMenuOpen() then
+		input.SetMouseInputEnabled(true)
+		draw_escape_menu()
+	elseif not engine.IsGameUIVisible() then
+		input.SetMouseInputEnabled(false)
+		hud()
+	end
+end
+
 callbacks.Register("DispatchUserMessage", chat_msgs)
 callbacks.Register("Draw", draw_chat)
 
-callbacks.Register("Draw", hud)
+callbacks.Register("Draw", hud_manager)
+callbacks.Register("CreateMove", mouse_input)
 
 callbacks.Register("FireGameEvent", killfeed)
 callbacks.Register("Draw", draw_killfeed)
 
 callbacks.Register("Unload", function ()
 	client.Command("cl_drawhud 1", true)
+	input.SetMouseInputEnabled(false)
 	gui.SetValue("double tap indicator size", 3)
 	gui.SetValue("crit hack indicator size", 3)
 end)

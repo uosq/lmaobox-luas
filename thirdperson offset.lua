@@ -1,4 +1,5 @@
 local alib = require("alib")
+alib.settings.font = draw.CreateFont("TF2 BUILD",12, 1000)
 
 local ui_visible = true -- disable ui
 
@@ -30,7 +31,7 @@ local dist = {
 }
 
 local window = {
-    x = 5, y = 5,
+    x = 5, y = 25,
     width = 110,
     height = 80,
 }
@@ -73,34 +74,33 @@ end
 
 callbacks.Register("Draw", function (param)
     if not gui.IsMenuOpen() or not ui_visible then return end
-    alib.objects.window(window.width, window.height, window.x, window.y)
+    alib.objects.window(window.width, window.height, window.x, window.y, "3rdperson xyz")
 
-    alib.objects.sliderfade(right.width, right.height, right.x + window.y, right.y + window.y, right.min, right.max, right.value, 150, 255, true) -- right
+    alib.objects.sliderfade(right.width, right.height, right.x + window.x, right.y + window.y, right.min, right.max, right.value, 150, 255, true) -- right
     do
         local percent = (right.value - right.min) / (right.max - right.min)
         draw.SetFont(font)
-        local tw = draw.GetTextSize("right")
+        local tw, th = draw.GetTextSize("right")
         draw.Color(0, 0, 0, 200)
-        draw.Text(right.x + window.x + math.floor(right.width * percent) - tw, right.y + math.floor(right.height/2), "right")
+        draw.Text(right.x + window.x + math.floor(right.width * percent) - tw, right.y + math.floor(th/2) + window.y, "right")
     end
 
     alib.objects.sliderfade(up.width, up.height, up.x + window.x, up.y + window.y, up.min, up.max, up.value, 150, 255, true) -- up
     do
         local percent = (up.value - up.min) / (up.max - up.min)
-        
         draw.SetFont(font)
-        local tw = draw.GetTextSize("up")
+        local tw, th = draw.GetTextSize("up")
         draw.Color(0, 0, 0, 200)
-        draw.Text(up.x + window.x + math.floor(up.width * percent) - tw, up.y + math.floor(up.height/2), "up")
+        draw.Text(up.x + window.x + math.floor(up.width * percent) - tw, up.y + math.floor(th/2) + window.y, "up")
     end
 
     alib.objects.sliderfade(dist.width, dist.height, dist.x + window.x, dist.y + window.y, dist.min, dist.max, dist.value, 150, 255, true) -- dist
     do
         local percent = (dist.value - dist.min) / (dist.max - dist.min)
         draw.SetFont(font)
-        local tw = draw.GetTextSize("dist")
+        local tw, th = draw.GetTextSize("dist")
         draw.Color(0, 0, 0, 200)
-        draw.Text(dist.x + window.x + math.floor(dist.width * percent) - tw, dist.y + math.floor(dist.height/2), "dist")
+        draw.Text(dist.x + window.x + math.floor(dist.width * percent) - tw, dist.y + math.floor(th/2) + window.y, "dist")
     end
 end)
 
