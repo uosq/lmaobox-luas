@@ -168,7 +168,7 @@ local function update_entities()
 	local num = 0
 	-- Process players and their children
 	for _, player in pairs(FindByClass("CTFPlayer")) do
-		if player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and (not player:InCond(E_TFCOND.TFCond_Cloaked) and gui.GetValue("hide cloaked") == 1) then
+		if player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and not(player:GetPropInt("m_PlayerClass","m_iClass") == TF2_Spy and player:InCond(E_TFCOND.TFCond_Cloaked) and gui.GetValue("hide cloaked") == 1) then
 			num = num + 1
 			local index = player:GetIndex()
 			entitycolors[index] = getEntityColor(player)
