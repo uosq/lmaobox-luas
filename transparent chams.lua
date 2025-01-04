@@ -1,5 +1,18 @@
 --- thank you Glitch, helped me a lot with making this not choke your fps to death! <3
 ---@diagnostic disable: cast-local-type
+
+--- SETTINGS
+--- draw chams on them?
+local HealthPack = true
+local AmmoPack = true
+local ViewmodelArm = true
+local Players = true
+local Sentries = true
+local Dispensers = true
+local Teleporters = true
+local Money = true
+---
+
 local materials = materials
 local render = render
 local entities = entities
@@ -37,21 +50,6 @@ local TEAMS = {
 	BLU = 3
 }
 
---- SETTINGS
-
---- draw chams on them?
-local HealthPack = true
-local AmmoPack = true
-
-local trackedEntities = {
-	CTFPlayer = true,       --- Players
-	CObjectSentrygun = true, --- Sentries
-	CObjectDispenser = true, --- Dispensers
-	CObjectTeleporter = true, --- Teleporters
-	CCurrencyPack = true,   --- MVM Money
-}
----
-
 local COLORS = {
 	TEAM = {
 		[TEAMS.RED] = setcolor(255, 200, 200, 51),
@@ -87,6 +85,14 @@ local COLORS = {
 	HEALTHKIT = setcolor(255, 200, 200, 255),
 
 	MVM_MONEY = setcolor(52, 235, 82, 150),
+}
+
+local trackedEntities = {
+	CTFPlayer = Players,       --- Players
+	CObjectSentrygun = Sentries, --- Sentries
+	CObjectDispenser = Dispensers, --- Dispensers
+	CObjectTeleporter = Teleporters, --- Teleporters
+	CCurrencyPack = Money,   --- MVM Money
 }
 
 --- END OF SETTINGS
@@ -201,7 +207,7 @@ local function update_entities()
 
 	-- Handle viewmodel arm
 	local localPlayer = entities.GetLocalPlayer()
-	if localPlayer then
+	if localPlayer and ViewmodelArm then
 		local viewmodel = localPlayer:GetPropEntity("m_hViewModel[0]")
 		if viewmodel and not viewmodel:IsDormant() and viewmodel:ShouldDraw() then
 			entitycolors[viewmodel:GetIndex()] = getEntityColor(viewmodel)
