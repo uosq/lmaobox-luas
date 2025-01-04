@@ -1,4 +1,3 @@
---- SPECIAL THANKS
 --- thank you Glitch, helped me a lot with making this not choke your fps to death! <3
 ---@diagnostic disable: cast-local-type
 local materials = materials
@@ -169,7 +168,7 @@ local function update_entities()
 	local num = 0
 	-- Process players and their children
 	for _, player in pairs(FindByClass("CTFPlayer")) do
-		if player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() then
+		if player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and (not player:InCond(E_TFCOND.TFCond_Cloaked) and gui.GetValue("hide cloaked") == 1) then
 			num = num + 1
 			local index = player:GetIndex()
 			entitycolors[index] = getEntityColor(player)
