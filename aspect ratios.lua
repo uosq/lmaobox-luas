@@ -5,9 +5,9 @@ local selected_ratio = 0
 local ratio_index = 0
 
 --- https://www.google.com/search?client=firefox-b-d&q=common+aspect+ratios
-local ratios = { (1 / 1), (3 / 2), (4 / 3), (16 / 9), (5 / 4), (3 / 1), 1.85, 2.40, 0 }
+local ratios = { (1 / 1), (3 / 2), (4 / 3), (16 / 9), (5 / 4), (3 / 1), 1.85, 2.40, 9/16, 0 }
 local ratio_names = { "1:1", "3:2", "4:3", "16:9", "5:4", "3:1",
-   "1.85:1", "2.4:1", "default" }
+   "1.85:1", "2.4:1", "9:16", "default" }
 
 local window = {}
 window.x = 100
