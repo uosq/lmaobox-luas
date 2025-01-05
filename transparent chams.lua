@@ -59,7 +59,7 @@ local COLORS = {
 		[TEAMS.BLU] = setcolor(94, 189, 224, 51),
 	},
 
-	TARGET = { 0.502, 1, 0, 0.2 },
+	TARGET = setcolor(128, 255, 0, 50),
 	FRIEND = setcolor(66, 245, 170, 50),
 	BACKTRACK = setcolor(50, 166, 168, 50),
 	ANTIAIM = setcolor(168, 50, 50, 50),
