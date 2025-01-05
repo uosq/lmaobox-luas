@@ -12,7 +12,7 @@ local Dispensers = true
 local Teleporters = true
 local Money = true
 local LocalPlayer = true
-local AntiAim = true
+local AntiAim = false
 local Backtrack = true
 ---
 
@@ -291,6 +291,8 @@ local function handleDrawModel(param)
 		ctx:SetColorModulation(color[1], color[2], color[3])
 		return
 	elseif (bDrawingBacktrack and not Backtrack) then
+		return
+	elseif (bDrawingAntiAim and not AntiAim) then
 		return
 	elseif (bDrawingAntiAim and AntiAim) then
 		local color = COLORS.ANTIAIM
