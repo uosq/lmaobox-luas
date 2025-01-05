@@ -12,7 +12,7 @@ local Dispensers = true
 local Teleporters = true
 local Money = true
 local LocalPlayer = true
-local AntiAim = false
+local AntiAim = true
 local Backtrack = true
 ---
 
