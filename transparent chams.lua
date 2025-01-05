@@ -11,6 +11,9 @@ local Sentries = true
 local Dispensers = true
 local Teleporters = true
 local Money = true
+local LocalPlayer = false
+local AntiAim = true
+local Backtrack = true
 ---
 
 local materials = materials
@@ -62,7 +65,7 @@ local COLORS = {
 	ANTIAIM = setcolor(168, 50, 50, 50),
 	PRIORITY = setcolor(238, 255, 0, 50),
 
-	LOCALPLAYER = setcolor(156, 66, 245, 179),
+	LOCALPLAYER = setcolor(156, 66, 245, 50),
 	VIEWMODEL_ARM = setcolor(4, 255, 0, 150),
 
 	WEAPON_PRIMARY = setcolor(163, 64, 90, 204),
@@ -88,11 +91,11 @@ local COLORS = {
 }
 
 local trackedEntities = {
-	CTFPlayer = Players,       --- Players
-	CObjectSentrygun = Sentries, --- Sentries
+	CTFPlayer = Players,           --- Players
+	CObjectSentrygun = Sentries,   --- Sentries
 	CObjectDispenser = Dispensers, --- Dispensers
 	CObjectTeleporter = Teleporters, --- Teleporters
-	CCurrencyPack = Money,   --- MVM Money
+	CCurrencyPack = Money,         --- MVM Money
 }
 
 --- END OF SETTINGS
@@ -169,12 +172,13 @@ end
 local function update_entities()
 	collectgarbage("stop")
 	currentTarget = GetByIndex(GetAimbotTarget())
+	local local_player = entities.GetLocalPlayer()
 	entitycolors = {}
 
 	local num = 0
 	-- Process players and their children
 	for _, player in pairs(FindByClass("CTFPlayer")) do
-		if player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and not(player:GetPropInt("m_PlayerClass","m_iClass") == TF2_Spy and player:InCond(E_TFCOND.TFCond_Cloaked) and gui.GetValue("hide cloaked") == 1) then
+		if player and player ~= local_player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and not (player:GetPropInt("m_PlayerClass", "m_iClass") == TF2_Spy and player:InCond(E_TFCOND.TFCond_Cloaked) and gui.GetValue("hide cloaked") == 1) then
 			num = num + 1
 			local index = player:GetIndex()
 			entitycolors[index] = getEntityColor(player)
@@ -205,12 +209,21 @@ local function update_entities()
 		end
 	end
 
-	-- Handle viewmodel arm
-	local localPlayer = entities.GetLocalPlayer()
-	if localPlayer and ViewmodelArm then
-		local viewmodel = localPlayer:GetPropEntity("m_hViewModel[0]")
-		if viewmodel and not viewmodel:IsDormant() and viewmodel:ShouldDraw() then
-			entitycolors[viewmodel:GetIndex()] = getEntityColor(viewmodel)
+	--- localplayer
+	if LocalPlayer and local_player then
+		entitycolors[local_player:GetIndex()] = COLORS.LOCALPLAYER
+		local moveChild = local_player:GetMoveChild()
+		while moveChild do
+			entitycolors[moveChild:GetIndex()] = getEntityColor(moveChild)
+			moveChild = moveChild:GetMovePeer()
+		end
+	end
+
+	--- viewmodel arm
+	if ViewmodelArm and local_player then
+		local viewmodel = local_player:GetPropEntity("m_hViewModel[0]")
+		if viewmodel then
+			entitycolors[viewmodel:GetIndex()] = COLORS.VIEWMODEL_ARM
 		end
 	end
 
@@ -268,6 +281,25 @@ end)
 ---@param param DrawModelContext
 local function handleDrawModel(param)
 	local ctx = param
+
+	local bDrawingBacktrack = ctx:IsDrawingBackTrack()
+	local bDrawingAntiAim = ctx:IsDrawingAntiAim()
+	if (bDrawingBacktrack and Backtrack) then
+		local color = COLORS.BACKTRACK
+		ctx:SetAlphaModulation(color[4])
+		ctx:ForcedMaterialOverride(selectedMaterial)
+		ctx:SetColorModulation(color[1], color[2], color[3])
+		return
+	elseif (bDrawingBacktrack and not Backtrack) then
+		return
+	elseif (bDrawingAntiAim and AntiAim) then
+		local color = COLORS.ANTIAIM
+		ctx:SetAlphaModulation(color[4])
+		ctx:ForcedMaterialOverride(selectedMaterial)
+		ctx:SetColorModulation(color[1], color[2], color[3])
+		return
+	end
+
 	local entity = ctx:GetEntity()
 
 	if not entity or entity:IsDormant() then return end
@@ -276,16 +308,18 @@ local function handleDrawModel(param)
 	if not entity_colors[index] then return end
 
 	local class = entity:GetClass()
-	local bDrawingBacktrack = ctx:IsDrawingBackTrack()
-	local bDrawingAntiAim = ctx:IsDrawingAntiAim()
-	local color = bDrawingBacktrack and COLORS.BACKTRACK or bDrawingAntiAim and COLORS.ANTIAIM or entity_colors[index]
+	local color = entity_colors[index]
+	if not color then return end
 
 	ctx:SetAlphaModulation(color[4])
 	ctx:ForcedMaterialOverride(selectedMaterial)
 	ctx:SetColorModulation(color[1], color[2], color[3])
 
+	local localplayer = entities.GetLocalPlayer()
+	if not localplayer then return end
+
 	--- ViewModel is strange, overriding DepthRange makes it get behind other models, so i gotta do this
-	if class ~= "CTFViewModel" then
+	if class ~= "CTFViewModel" or (entity == localplayer and not localplayer:InCond(E_TFCOND.TFCond_Zoomed)) then
 		render.OverrideDepthEnable(true, true)
 		ctx:DepthRange(0, 0.2)
 		ctx:Execute()
