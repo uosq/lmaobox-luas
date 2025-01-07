@@ -66,11 +66,11 @@ local COLORS = {
 	PRIORITY = setcolor(238, 255, 0, 50),
 
 	LOCALPLAYER = setcolor(156, 66, 245, 50),
-	VIEWMODEL_ARM = setcolor(4, 255, 0, 150),
+	VIEWMODEL_ARM = setcolor(24, 255, 0, 50),
 
-	WEAPON_PRIMARY = setcolor(163, 64, 90, 204),
-	WEAPON_SECONDARY = setcolor(74, 79, 125, 204),
-	WEAPON_MELEE = setcolor(255, 255, 255, 204),
+	WEAPON_PRIMARY = setcolor(163, 64, 90, 100),
+	WEAPON_SECONDARY = setcolor(74, 79, 125, 100),
+	WEAPON_MELEE = setcolor(255, 255, 255, 100),
 
 	RED_HAT = setcolor(21, 255, 0, 150),
 	BLU_HAT = setcolor(255, 0, 13, 150),
@@ -98,6 +98,12 @@ local trackedEntities = {
 	CCurrencyPack = Money,         --- MVM Money
 }
 
+local depth_mode = {
+	always = 0.2,
+	["when visible"] = 1,
+	["when invisible"] = 0.2,
+}
+
 --- END OF SETTINGS
 local FindByClass = entities.FindByClass
 local GetByIndex = entities.GetByIndex
@@ -111,6 +117,7 @@ local entity_colors = {}
 local entitycolors = {}
 
 local currentTarget = nil
+local currentMode = depth_mode.always
 local selectedMaterial = flat
 
 local number_players = 0
@@ -149,7 +156,7 @@ local function getEntityColor(entity)
 
 	-- check for hats
 	if string.find(class, "Wearable") then
-		return team_number == 2 and COLORS.RED_HAT or COLORS.BLU_HAT
+		return team_number == TEAMS.RED and COLORS.RED_HAT or COLORS.BLU_HAT
 	end
 
 	local priority = playerlist.GetPriority(entity)
@@ -178,7 +185,7 @@ local function update_entities()
 	local num = 0
 	-- Process players and their children
 	for _, player in pairs(FindByClass("CTFPlayer")) do
-		if player and player ~= local_player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() then
+		if player and player ~= local_player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and not player:InCond(E_TFCOND.TFCond_Cloaked) then
 			num = num + 1
 			local index = player:GetIndex()
 			entitycolors[index] = getEntityColor(player)
@@ -256,9 +263,9 @@ local function update_entities()
 end
 
 local fast_interval = 5   --- every 5 ticks
-local slow_interval = 133 --- every 2 seconds
+local slow_interval = 133 --- every ~2 seconds
 
-local update_interval = 0 --- every 3 ticks
+local update_interval = 0
 local last_tick = 0
 
 ---@param cmd UserCmd
@@ -267,7 +274,7 @@ callbacks.Register("CreateMove", function(cmd)
 		selectedMaterial = string.lower(gui.GetValue("draw style")) == "flat"
 			 and flat
 			 or textured
-
+		currentMode = depth_mode[gui.GetValue("draw mode")]
 		--- if we are playing on a high player count server, increase the update interval to not cause too much lag
 		--- the player would definitely notice, but its better than having 10 fps
 		update_interval = number_players > 50 and slow_interval or fast_interval
@@ -278,6 +285,23 @@ callbacks.Register("CreateMove", function(cmd)
 	end
 end)
 
+---@param ctx DrawModelContext
+---@param depth number [0, 1]
+local function change_depth(ctx, depth)
+	render.OverrideDepthEnable(true, true)
+	ctx:DepthRange(0, depth and depth or 1)
+	ctx:Execute()
+	ctx:DepthRange(0, 1)
+	render.OverrideDepthEnable(false, false)
+end
+
+--- sets the material, alpha and color
+local function setctx(ctx, color)
+	ctx:SetAlphaModulation(color[4])
+	ctx:ForcedMaterialOverride(selectedMaterial)
+	ctx:SetColorModulation(color[1], color[2], color[3])
+end
+
 ---@param param DrawModelContext
 local function handleDrawModel(param)
 	local ctx = param
@@ -286,9 +310,8 @@ local function handleDrawModel(param)
 	local bDrawingAntiAim = ctx:IsDrawingAntiAim()
 	if (bDrawingBacktrack and Backtrack) then
 		local color = COLORS.BACKTRACK
-		ctx:SetAlphaModulation(color[4])
-		ctx:ForcedMaterialOverride(selectedMaterial)
-		ctx:SetColorModulation(color[1], color[2], color[3])
+		setctx(ctx, color)
+		change_depth(ctx, currentMode)
 		return
 	elseif (bDrawingBacktrack and not Backtrack) then
 		return
@@ -296,37 +319,25 @@ local function handleDrawModel(param)
 		return
 	elseif (bDrawingAntiAim and AntiAim) then
 		local color = COLORS.ANTIAIM
-		ctx:SetAlphaModulation(color[4])
-		ctx:ForcedMaterialOverride(selectedMaterial)
-		ctx:SetColorModulation(color[1], color[2], color[3])
+		setctx(ctx, color)
+		change_depth(ctx, currentMode)
 		return
 	end
 
 	local entity = ctx:GetEntity()
-
 	if not entity or entity:IsDormant() then return end
 	local index = entity:GetIndex()
 
 	if not entity_colors[index] then return end
 
-	local class = entity:GetClass()
 	local color = entity_colors[index]
 	if not color then return end
+	setctx(ctx, color)
 
-	ctx:SetAlphaModulation(color[4])
-	ctx:ForcedMaterialOverride(selectedMaterial)
-	ctx:SetColorModulation(color[1], color[2], color[3])
-
-	local localplayer = entities.GetLocalPlayer()
-	if not localplayer then return end
-
+	local class = entity:GetClass()
 	--- ViewModel is strange, overriding DepthRange makes it get behind other models, so i gotta do this
-	if class ~= "CTFViewModel" or (entity == localplayer and not localplayer:InCond(E_TFCOND.TFCond_Zoomed)) then
-		render.OverrideDepthEnable(true, true)
-		ctx:DepthRange(0, 0.2)
-		ctx:Execute()
-		ctx:DepthRange(0, 1)
-		render.OverrideDepthEnable(false, false)
+	if class ~= "CTFViewModel" then
+		change_depth(ctx, currentMode)
 	end
 end
 
