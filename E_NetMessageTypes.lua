@@ -69,15 +69,13 @@ local E_NetMessageValues = {
    end,
 
    -- a string command
-   net_StringCmd = {
-      ---@param bf BitBuffer
-      m_szCommand = function(bf)
-         bf:SetCurBit(NETMSG_TYPE_BITS)
-         local m_szCommand, endpos = bf:ReadString(32)
-         bf:SetCurBit(NETMSG_TYPE_BITS)
-         return m_szCommand, endpos
-      end
-   },
+   ---@param bf BitBuffer
+   net_StringCmd = function(bf)
+      bf:SetCurBit(NETMSG_TYPE_BITS)
+      local m_szCommand, endpos = bf:ReadString(32)
+      bf:SetCurBit(NETMSG_TYPE_BITS)
+      return m_szCommand, endpos
+   end,
 
    -- sends one/multiple convar settings
    ---@param bf BitBuffer
