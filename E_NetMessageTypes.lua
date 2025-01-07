@@ -41,9 +41,9 @@ local E_NetMessageValues = {
    ---@param bf BitBuffer
    net_Disconnect = function(bf)
       bf:SetCurBit(NETMSG_TYPE_BITS)
-      local reason = bf:ReadString(32)
+      local reason, endpos = bf:ReadString(32)
       bf:SetCurBit(NETMSG_TYPE_BITS)
-      return reason
+      return reason, endpos
    end,
 
    -- file transmission message request/deny
@@ -149,7 +149,7 @@ local E_NetMessageValues = {
       bf:SetCurBit(NETMSG_TYPE_BITS)
       local values = {}
       values.m_nBaselineTick = bf:ReadInt(32)
-      values.m_nBaselineNr = bf:ReadInt(1)
+      values.m_nBaselineNr = bf:ReadInt(1) --- is this right? shouldn't it be bf:ReadBit()?
       local endpos = bf:GetCurBit()
       bf:SetCurBit(NETMSG_TYPE_BITS)
       return values, endpos
