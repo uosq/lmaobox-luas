@@ -108,9 +108,8 @@ local E_NetMessageValues = {
    ---@param bf BitBuffer
    -- client info (table CRC etc)
    clc_ClientInfo = function(bf)
-      local values = {}
-
       bf:SetCurBit(NETMSG_TYPE_BITS)
+      local values = {}
       values.m_nServerCount = bf:ReadInt(32)
       values.m_nSendTableCRC = bf:ReadInt(32)
       values.m_bIsHLTV = bf:ReadBit() == 1 and true or false
