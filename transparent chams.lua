@@ -2,6 +2,9 @@
 ---@diagnostic disable: cast-local-type
 
 --- SETTINGS
+---
+local toggle_key = E_ButtonCode.KEY_J
+
 --- draw chams on them?
 local HealthPack = true
 local AmmoPack = true
@@ -14,6 +17,9 @@ local Money = true
 local LocalPlayer = true
 local AntiAim = true
 local Backtrack = true
+
+local EnemyOnly = true
+
 ---
 
 local materials = materials
@@ -109,6 +115,7 @@ local FindByClass = entities.FindByClass
 local GetByIndex = entities.GetByIndex
 local GetAimbotTarget = aimbot.GetAimbotTarget
 local type = type
+local toggle = true
 
 --- the one we render is this
 local entity_colors = {}
@@ -185,7 +192,8 @@ local function update_entities()
 	local num = 0
 	-- Process players and their children
 	for _, player in pairs(FindByClass("CTFPlayer")) do
-		if player and player ~= local_player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and not player:InCond(E_TFCOND.TFCond_Cloaked) then
+		---@diagnostic disable-next-line: need-check-nil
+		if player and player ~= local_player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and not player:InCond(E_TFCOND.TFCond_Cloaked) and (not EnemyOnly or player:GetTeamNumber() ~= local_player:GetTeamNumber()) then
 			num = num + 1
 			local index = player:GetIndex()
 			entitycolors[index] = getEntityColor(player)
@@ -238,7 +246,7 @@ local function update_entities()
 	for className in pairs(trackedEntities) do
 		if className ~= "CTFPlayer" then
 			for _, building in pairs(FindByClass(className)) do
-				if building and not building:IsDormant() and building:ShouldDraw() and building:GetHealth() > 0 then
+				if building and not building:IsDormant() and building:ShouldDraw() and building:GetHealth() > 0 and (not EnemyOnly or building:GetTeamNumber() ~= local_player:GetTeamNumber()) then
 					entitycolors[building:GetIndex()] = getEntityColor(building)
 				end
 			end
@@ -268,8 +276,16 @@ local slow_interval = 133 --- every ~2 seconds
 local update_interval = 0
 local last_tick = 0
 
+local last_button_press_tick = 0
+
 ---@param cmd UserCmd
 callbacks.Register("CreateMove", function(cmd)
+	local state, tick = input.IsButtonPressed(toggle_key)
+	if state and tick ~= last_button_press_tick then
+		last_button_press_tick = tick
+		toggle = not toggle
+	end
+	if not toggle then return end
 	if cmd.tick_count - last_tick >= update_interval then
 		selectedMaterial = string.lower(gui.GetValue("draw style")) == "flat"
 			 and flat
@@ -304,6 +320,7 @@ end
 
 ---@param param DrawModelContext
 local function handleDrawModel(param)
+	if not toggle then return end
 	local ctx = param
 
 	local bDrawingBacktrack = ctx:IsDrawingBackTrack()
@@ -334,9 +351,8 @@ local function handleDrawModel(param)
 	if not color then return end
 	setctx(ctx, color)
 
-	local class = entity:GetClass()
 	--- ViewModel is strange, overriding DepthRange makes it get behind other models, so i gotta do this
-	if class ~= "CTFViewModel" then
+	if entity:GetClass() ~= "CTFViewModel" then
 		change_depth(ctx, currentMode)
 	end
 end

@@ -185,23 +185,23 @@ local E_NetMessageValues = {
 --- an example, idk if its working tho lol
 ---@param msg NetMessage
 callbacks.Register("SendNetMsg", function(msg)
-   if msg:GetType() == E_NetMessageTypes.clc_Move then
+   if msg:GetType() == E_NetMessageTypes.clc_Move and warp.GetChargedTicks() == 23 then
       local bf = BitBuffer()
       bf:SetCurBit(0)
       msg:WriteToBitBuffer(bf)
       local clc_move = E_NetMessageValues.clc_Move(bf)
       local m_nNewCommands, m_nBackupCommands, m_nLength = clc_move.m_nNewCommands, clc_move.m_nBackupCommands,
           clc_move.m_nLength
-      print(string.format("%s, %s, %s", m_nNewCommands, m_nBackupCommands, m_nLength))
+      print(string.format("newcmds %s, backup cmds %s, length %s", m_nNewCommands, m_nBackupCommands, m_nLength))
 
       bf:SetCurBit(NETMSG_TYPE_BITS) --- skip the msg type so we dont write on the wrong position
 
       --- changing the values now
 
       --- change m_nNewCommands
-      bf:WriteInt(15, NUM_NEW_COMMAND_BITS)
+      bf:WriteBit(15)
       --- change m_nBackupCommands
-      bf:WriteInt(7, NUM_BACKUP_COMMAND_BITS)
+      bf:WriteInt(7)
 
       --- dont forget to reset bf to the msg type or it will send garbage data and server possibly kick us
       bf:SetCurBit(NETMSG_TYPE_BITS)
