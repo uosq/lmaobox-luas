@@ -6,9 +6,9 @@ local MAX_CUSTOM_FILES = 4          -- max 4 files
 local MAX_CUSTOM_FILE_SIZE52428 = 8 -- Half a megabyte
 
 --- used by clc_Move
-local NUM_NEW_COMMAND_BITS = 4
+local NUM_NEW_COMMAND_BITS = 4 -- size
 local MAX_NEW_COMMANDS = ((1 << NUM_NEW_COMMAND_BITS) - 1)       -- 15
-local NUM_BACKUP_COMMAND_BITS = 3
+local NUM_BACKUP_COMMAND_BITS = 15 -- size
 local MAX_BACKUP_COMMANDS = ((1 << NUM_BACKUP_COMMAND_BITS) - 1) -- 7
 
 ---@enum E_NetMessageTypes
