@@ -13,10 +13,13 @@ local barY = math.floor(screenY / 2) + 20
 
 local maxticks = 24
 local charged_ticks = 0
+local speed = 2
 
 local charge_key = gui.GetValue("force recharge key")
 local send_key = gui.GetValue("double tap key")
-local passive_recharge = true
+
+local increase_speed, decrease_speed = E_ButtonCode.KEY_UP, E_ButtonCode.KEY_DOWN
+local passive_recharge = false
 
 local localplayer = nil
 
@@ -25,7 +28,7 @@ local warping = false
 local recharging = false
 
 local boostBf = BitBuffer()
-boostBf:WriteInt(7, 4)   -- m_nNewCommands
+boostBf:WriteInt(15, 4)  -- m_nNewCommands
 boostBf:WriteInt(15, 15) -- m_nBackupCommands
 boostBf:SetCurBit(6)     -- NETMSG_TYPE_BITS
 
@@ -34,57 +37,62 @@ chargeBf:WriteInt(0, 4) -- m_nNewCommands
 chargeBf:WriteInt(0, 7) -- m_nBackupCommands
 chargeBf:SetCurBit(6)   -- NETMSG_TYPE_BITS
 
+--- disable tick shifting stuff from lbox
+gui.SetValue("double tap", "none")
+gui.SetValue("dash move key", 0)
+
+local last_released_key_tick = 0
 ---@param usercmd UserCmd
 callbacks.Register("CreateMove", function(usercmd)
    localplayer = entities:GetLocalPlayer()
+   local state, tick = input.IsButtonPressed(increase_speed)
 
-   if input.IsButtonDown(send_key) and charged_ticks > 0 and not recharging then
+   if state and last_released_key_tick ~= tick and speed < maxticks then
+      last_released_key_tick = tick
+      speed = speed + 1
+      client.ChatPrintf("New warp speed is: " .. speed)
+   end
+
+   state, tick = input.IsButtonPressed(decrease_speed)
+
+   if state and tick ~= last_released_key_tick and speed > 0 then
+      last_released_key_tick = tick
+      speed = speed - 1
+      client.ChatPrintf("New warp speed is: " .. speed)
+   end
+
+   if input.IsButtonDown(send_key) and charged_ticks > 0 and not recharging and not warping then
       warping = true
    end
 
-   if input.IsButtonReleased(send_key) then
+   if input.IsButtonReleased(send_key) and warping then
       warping = false
-   end
-
-   if localplayer and localplayer:IsAlive() and charged_ticks < maxticks and recharging then
-      usercmd.buttons = 0
-      usercmd.sendpacket = false
    end
 end)
 
 ---@param msg NetMessage
-local function DoBoost(msg)
-   if recharging then return true end
-   msg:ReadFromBitBuffer(boostBf)
-   boostBf:SetCurBit(6)
-   charged_ticks = charged_ticks - 1
-   return true
-end
-
-local function ChargeSingleTick(msg, tick_amount)
-   charged_ticks = charged_ticks + 1
-   next_recharge_tick = globals.TickCount() + tick_amount
-   msg:ReadFromBitBuffer(chargeBf)
-   boostBf:SetCurBit(6)
-   return false
-end
-
----@param msg NetMessage
 local function Warp(msg)
    if msg:GetType() == 9 and localplayer and localplayer:IsAlive() and gui.GetValue("anti aim") == 0 and gui.GetValue("fake lag") == 0 then
-      if input.IsButtonDown(send_key) and charged_ticks > 0 and not recharging then
-         return DoBoost(msg)
+      if warping and charged_ticks > 0 and not recharging then
+         msg:ReadFromBitBuffer(boostBf)
+         charged_ticks = charged_ticks - 1
+         boostBf:SetCurBit(6)
+         return true
       end
 
       if input.IsButtonDown(charge_key) and charged_ticks < maxticks and not warping then
-         return ChargeSingleTick(msg, 0)
+         recharging = true
+         charged_ticks = charged_ticks + 1
+         recharging = false
+         return false
       end
 
       if passive_recharge and not recharging and charged_ticks < maxticks and globals.TickCount() >= next_recharge_tick and not warping then
          recharging = true
-         local charged = ChargeSingleTick(msg, 67)
+         charged_ticks = charged_ticks + 1
+         next_recharge_tick = globals.TickCount() + 66.67
          recharging = false
-         return charged
+         return false
       end
    end
    return true
