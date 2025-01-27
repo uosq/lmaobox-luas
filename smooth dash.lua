@@ -2,6 +2,13 @@
 Made by navet
 --]]
 
+--- settings
+local charge_key = gui.GetValue("force recharge key")
+local send_key = gui.GetValue("double tap key")
+local maxticks = 24           -- default is 24 for valve servers
+local passive_recharge = true -- if you want to not recharge passively make this false
+--- end of settings
+
 --- the charge bar is not mine, i pasted it from another script, idk who tho im sorry :(
 local barWidth = 200
 local barHeight = 15
@@ -11,13 +18,7 @@ local screenX, screenY = draw.GetScreenSize()
 local barX = math.floor(screenX / 2 - barWidth / 2)
 local barY = math.floor(screenY / 2) + 20
 
-local maxticks = 24
 local charged_ticks = 0
-
-local charge_key = gui.GetValue("force recharge key")
-local send_key = gui.GetValue("double tap key")
-
-local passive_recharge = true
 
 local localplayer = nil
 
