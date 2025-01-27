@@ -30,11 +30,6 @@ boostBf:WriteInt(15, 4)  -- m_nNewCommands
 boostBf:WriteInt(15, 15) -- m_nBackupCommands
 boostBf:SetCurBit(6)     -- NETMSG_TYPE_BITS
 
-local chargeBf = BitBuffer()
-chargeBf:WriteInt(0, 4) -- m_nNewCommands
-chargeBf:WriteInt(0, 7) -- m_nBackupCommands
-chargeBf:SetCurBit(6)   -- NETMSG_TYPE_BITS
-
 --- disable tick shifting stuff from lbox
 gui.SetValue("double tap", "none")
 gui.SetValue("dash move key", 0)
@@ -104,7 +99,7 @@ end
 
 callbacks.Register("SendNetMsg", Warp)
 callbacks.Register("Draw", Draw)
+
 callbacks.Register("Unload", function()
    boostBf:Delete()
-   chargeBf:Delete()
 end)
