@@ -3,10 +3,10 @@ Made by navet
 --]]
 
 --- settings
-local charge_key = gui.GetValue("force recharge key")
-local send_key = gui.GetValue("double tap key")
-local maxticks = 24           -- default is 24 for valve servers
-local passive_recharge = true -- if you want to not recharge passively make this false
+local charge_key = gui.GetValue("force recharge key") --- change this to E_ButtonCode.KEY_something if you want to change the key
+local send_key = gui.GetValue("double tap key")       --- change this to E_ButtonCode.KEY_something if you want to change the key
+local maxticks = 24                                   -- default is 24 for valve servers
+local passive_recharge = true                         -- if you want to not recharge passively make this false
 --- end of settings
 
 --- the charge bar is not mine, i pasted it from another script, idk who tho im sorry :(
