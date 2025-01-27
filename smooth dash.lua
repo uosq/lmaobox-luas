@@ -13,13 +13,11 @@ local barY = math.floor(screenY / 2) + 20
 
 local maxticks = 24
 local charged_ticks = 0
-local speed = 2
 
 local charge_key = gui.GetValue("force recharge key")
 local send_key = gui.GetValue("double tap key")
 
-local increase_speed, decrease_speed = E_ButtonCode.KEY_UP, E_ButtonCode.KEY_DOWN
-local passive_recharge = false
+local passive_recharge = true
 
 local localplayer = nil
 
@@ -41,25 +39,9 @@ chargeBf:SetCurBit(6)   -- NETMSG_TYPE_BITS
 gui.SetValue("double tap", "none")
 gui.SetValue("dash move key", 0)
 
-local last_released_key_tick = 0
 ---@param usercmd UserCmd
 callbacks.Register("CreateMove", function(usercmd)
    localplayer = entities:GetLocalPlayer()
-   local state, tick = input.IsButtonPressed(increase_speed)
-
-   if state and last_released_key_tick ~= tick and speed < maxticks then
-      last_released_key_tick = tick
-      speed = speed + 1
-      client.ChatPrintf("New warp speed is: " .. speed)
-   end
-
-   state, tick = input.IsButtonPressed(decrease_speed)
-
-   if state and tick ~= last_released_key_tick and speed > 0 then
-      last_released_key_tick = tick
-      speed = speed - 1
-      client.ChatPrintf("New warp speed is: " .. speed)
-   end
 
    if input.IsButtonDown(send_key) and charged_ticks > 0 and not recharging and not warping then
       warping = true
