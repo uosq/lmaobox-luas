@@ -5,12 +5,15 @@ Made by navet
 --- settings
 local charge_key = gui.GetValue("force recharge key") --- change this to E_ButtonCode.KEY_something if you want to change the key
 local send_key = gui.GetValue("double tap key") --- change this to E_ButtonCode.KEY_something if you want to change the key
-local maxticks = 24 -- default is 24 for valve servers
+local toggle_passive_recharge_key = E_ButtonCode.KEY_R --- Toggles passive recharge |change this to E_ButtonCode.KEY_thekeyyouwant EXAMPLE: E_ButtonCode.KEY_R
+
 local passive_recharge = true -- if you want to not recharge passively make this false
-local speed = 1 -- will probably get fixed someday
+local passive_recharge_ticks = 2 --- how much ticks should it recharge every time |  WARNING: DOESNT WORK YET! Waiting for netchannel:SendNetMsg() fix!
+local passive_recharge_time_seconds = 1 --- how often should be recharge passively in seconds?
 --- end of settings
 
 --- the charge bar is not mine, i pasted it from another script, idk who tho im sorry :(
+local font = draw.CreateFont("TF2 BUILD", 12, 1000)
 local barWidth = 200
 local barHeight = 15
 local backgroundOffset = 5
@@ -23,13 +26,23 @@ local charged_ticks = 0
 
 local localplayer = nil
 
+local passive_recharge_time = passive_recharge_time_seconds * 66.67 --- 66.67 is 1 second in source engine spaghetti
 local next_recharge_tick = 0
+
 local warping = false
 local recharging = false
+local shooting = false
 
 --- disable tick shifting stuff from lbox
 gui.SetValue("double tap", "none")
 gui.SetValue("dash move key", 0)
+
+local function GetMaxPossibleTicks()
+	local sv_maxusrcmdprocessticks = client.GetConVar("sv_maxusrcmdprocessticks") - 0
+	return sv_maxusrcmdprocessticks == 0 and 9999 or sv_maxusrcmdprocessticks -- default is 24 for valve servers
+end
+
+local maxticks = GetMaxPossibleTicks()
 
 local clc_Move_type = 9
 local msg_type_size = 6
@@ -41,15 +54,30 @@ local function create_clc_move_buffer(new_commands, backup_commands)
 	local bf = BitBuffer()
 	bf:SetCurBit(0)
 	bf:WriteInt(clc_Move_type, msg_type_size)
-	bf:WriteInt(new_commands, NEW_COMMANDS_SIZE)
-	bf:WriteInt(backup_commands, BACKUP_COMMANDS_SIZE)
+	bf:WriteInt(new_commands, NEW_COMMANDS_SIZE) -- m_nNewCommands
+	bf:WriteInt(backup_commands, BACKUP_COMMANDS_SIZE) -- m_nBackupCommands
 	bf:SetCurBit(0)
 	return bf
 end
 
+---@param bf BitBuffer
+local function clc_move_tostring(bf)
+	local str = "clc_Move, new commands: %i, backup commands: %i, bytes: %i"
+	bf:SetCurBit(6) -- skip msg type
+	local m_nNewCommands = bf:ReadInt(NEW_COMMANDS_SIZE)
+	local m_nBackupCommands = bf:ReadInt(BACKUP_COMMANDS_SIZE)
+	local m_nLength = bf:GetDataBytesLength()
+	bf:SetCurBit(6)
+	return string.format(str, tostring(m_nNewCommands), tostring(m_nBackupCommands), tostring(m_nLength))
+end
+
+local last_pressed_tick = 0
 ---@param usercmd UserCmd
 callbacks.Register("CreateMove", function(usercmd)
 	localplayer = entities:GetLocalPlayer()
+	if not localplayer then
+		return
+	end
 
 	if input.IsButtonDown(send_key) and charged_ticks > 0 and not recharging and not warping then
 		warping = true
@@ -58,52 +86,17 @@ callbacks.Register("CreateMove", function(usercmd)
 	if input.IsButtonReleased(send_key) and warping then
 		warping = false
 	end
+
+	local state, tick = input.IsButtonPressed(toggle_passive_recharge_key)
+	if state and tick ~= last_pressed_tick then
+		passive_recharge = not passive_recharge
+		client.ChatPrintf("\x01Passive recharge is now: " .. tostring(passive_recharge and "on" or "off"))
+		last_pressed_tick = tick
+	end
+
+	shooting = usercmd.buttons & IN_ATTACK ~= 0
+	maxticks = GetMaxPossibleTicks()
 end)
-
----@param msg NetMessage
-local function SendNetMsg(msg)
-	local netchannel = clientstate:GetNetChannel()
-	if netchannel then
-		return netchannel:SendNetMsg(msg)
-	end
-	return false
-end
-
----@param msg NetMessage
-local function SendCLMove(msg)
-	--local orig_bf = BitBuffer() -- save original clc_Move
-	--msg:WriteToBitBuffer(orig_bf)
-	--print(msg:ToString())
-	--orig_bf:SetCurBit(6) -- skip msg type
-
-	--[[IsButtonReleasedostBf:SetCurBit(6) -- skip msg type
-	msg:ReadFromBitBuffer(boostBf)
-	boostBf:SetCurBit(6) -- i dont remember if we need to skip it here, but just in case its here :)
-	SendNetMsg(msg) --- send our clc_Move message
-	charged_ticks = charged_ticks - 1]]
-
-	local buffer = create_clc_move_buffer(2, 1)
-	buffer:SetCurBit(6)
-	msg:ReadFromBitBuffer(buffer)
-	SendNetMsg(msg)
-	charged_ticks = charged_ticks - 1
-	buffer:Delete()
-
-	--msg:ReadFromBitBuffer(orig_bf)
-	--SendNetMsg(msg) --- send original msg
-	--	orig_bf:Delete()
-end
-
----@param msg NetMessage
-local function DoWarp(msg)
-	for i = 1, speed do
-		if charged_ticks <= 0 then
-			break
-		end
-
-		SendCLMove(msg)
-	end
-end
 
 ---@param msg NetMessage
 local function Warp(msg)
@@ -112,7 +105,8 @@ local function Warp(msg)
 			charged_ticks = 0
 			next_recharge_tick = 0
 			recharging = false
-			maxticks = (client.GetConVar("sv_maxusrcmdprocessticks") - 0) -- doing -0 so my lsp stops complaining
+			warping = false
+			maxticks = GetMaxPossibleTicks()
 		end
 	end
 	if
@@ -126,6 +120,7 @@ local function Warp(msg)
 			local buffer = create_clc_move_buffer(2, 1)
 			buffer:SetCurBit(6)
 			msg:ReadFromBitBuffer(buffer)
+			buffer:SetCurBit(6)
 			charged_ticks = charged_ticks - 1
 			buffer:Delete()
 			return true
@@ -144,10 +139,11 @@ local function Warp(msg)
 			and charged_ticks < maxticks
 			and globals.TickCount() >= next_recharge_tick
 			and not warping
+			and not shooting
 		then
 			recharging = true
 			charged_ticks = charged_ticks + 1
-			next_recharge_tick = globals.TickCount() + 66.67
+			next_recharge_tick = globals.TickCount() + passive_recharge_time
 			recharging = false
 			return false
 		end
@@ -161,7 +157,7 @@ local function Draw()
 	end
 
 	local used_ticks = charged_ticks
-	used_ticks = math.max(0, math.min(used_ticks, maxticks))
+	used_ticks = math.floor(math.max(0, math.min(used_ticks, maxticks)))
 
 	-- Background
 	draw.Color(70, 70, 70, 150)
@@ -172,13 +168,23 @@ local function Draw()
 		barY + barHeight + backgroundOffset
 	)
 
-	local filledWidth = math.floor(barWidth * used_ticks / maxticks)
+	local filledWidth = math.floor((barWidth * used_ticks) / maxticks)
 	if used_ticks == maxticks then
 		draw.Color(1, 221, 103, 255) -- Green
 	else
 		draw.Color(97, 97, 76, 255) -- Red
 	end
-	draw.FilledRect(barX, barY, barX + filledWidth, barY + barHeight)
+	draw.FilledRect(math.floor(barX), math.floor(barY), math.floor(barX + filledWidth), math.floor(barY + barHeight))
+
+	local text = string.format("%i / %i", used_ticks, maxticks)
+	draw.SetFont(font)
+	local textW, textH = draw.GetTextSize(text)
+	local textX, textY =
+		barX + math.floor(barWidth / 2) - math.floor(textW / 2),
+		barY + math.floor(barHeight / 2) - math.floor(textH / 2)
+	draw.SetFont(font)
+	draw.Color(255, 255, 255, 255)
+	draw.Text(textX, textY, text)
 end
 
 callbacks.Register("SendNetMsg", Warp)
