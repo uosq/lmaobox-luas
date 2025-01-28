@@ -7,7 +7,7 @@ local charge_key = gui.GetValue("force recharge key") --- change this to E_Butto
 local send_key = gui.GetValue("double tap key") --- change this to E_ButtonCode.KEY_something if you want to change the key
 local maxticks = 24 -- default is 24 for valve servers
 local passive_recharge = true -- if you want to not recharge passively make this false
-local speed = 2 -- will probably get fixed someday
+local speed = 1 -- will probably get fixed someday
 --- end of settings
 
 --- the charge bar is not mine, i pasted it from another script, idk who tho im sorry :(
@@ -27,12 +27,6 @@ local next_recharge_tick = 0
 local warping = false
 local recharging = false
 
-local boostBf = BitBuffer()
-boostBf:WriteInt(9, 6) --- msg type clc_Move
-boostBf:WriteInt(7, 4) -- m_nNewCommands
-boostBf:WriteInt(15, 7) -- m_nBackupCommands
-boostBf:SetCurBit(0) -- NETMSG_TYPE_BITS
-
 --- disable tick shifting stuff from lbox
 gui.SetValue("double tap", "none")
 gui.SetValue("dash move key", 0)
@@ -43,7 +37,7 @@ local msg_type_size = 6
 local BACKUP_COMMANDS_SIZE = 3
 local NEW_COMMANDS_SIZE = 4
 
-local function create_clc_buffer(new_commands, backup_commands)
+local function create_clc_move_buffer(new_commands, backup_commands)
 	local bf = BitBuffer()
 	bf:SetCurBit(0)
 	bf:WriteInt(clc_Move_type, msg_type_size)
@@ -77,20 +71,27 @@ end
 
 ---@param msg NetMessage
 local function SendCLMove(msg)
-	local orig_bf = BitBuffer() -- save original clc_Move
-	msg:WriteToBitBuffer(orig_bf)
-	print(msg:ToString())
-	orig_bf:SetCurBit(6) -- skip msg type
+	--local orig_bf = BitBuffer() -- save original clc_Move
+	--msg:WriteToBitBuffer(orig_bf)
+	--print(msg:ToString())
+	--orig_bf:SetCurBit(6) -- skip msg type
 
-	boostBf:SetCurBit(6) -- skip msg type
+	--[[IsButtonReleasedostBf:SetCurBit(6) -- skip msg type
 	msg:ReadFromBitBuffer(boostBf)
 	boostBf:SetCurBit(6) -- i dont remember if we need to skip it here, but just in case its here :)
 	SendNetMsg(msg) --- send our clc_Move message
-	charged_ticks = charged_ticks - 1
+	charged_ticks = charged_ticks - 1]]
 
-	msg:ReadFromBitBuffer(orig_bf)
-	SendNetMsg(msg) --- send original msg
-	orig_bf:Delete()
+	local buffer = create_clc_move_buffer(2, 1)
+	buffer:SetCurBit(6)
+	msg:ReadFromBitBuffer(buffer)
+	SendNetMsg(msg)
+	charged_ticks = charged_ticks - 1
+	buffer:Delete()
+
+	--msg:ReadFromBitBuffer(orig_bf)
+	--SendNetMsg(msg) --- send original msg
+	--	orig_bf:Delete()
 end
 
 ---@param msg NetMessage
@@ -111,6 +112,7 @@ local function Warp(msg)
 			charged_ticks = 0
 			next_recharge_tick = 0
 			recharging = false
+			maxticks = (client.GetConVar("sv_maxusrcmdprocessticks") - 0) -- doing -0 so my lsp stops complaining
 		end
 	end
 	if
@@ -121,7 +123,7 @@ local function Warp(msg)
 		and gui.GetValue("fake lag") == 0
 	then
 		if warping and charged_ticks > 0 and not recharging then
-			local buffer = create_clc_buffer(2, 1)
+			local buffer = create_clc_move_buffer(2, 1)
 			buffer:SetCurBit(6)
 			msg:ReadFromBitBuffer(buffer)
 			charged_ticks = charged_ticks - 1
@@ -181,7 +183,3 @@ end
 
 callbacks.Register("SendNetMsg", Warp)
 callbacks.Register("Draw", Draw)
-
-callbacks.Register("Unload", function()
-	boostBf:Delete()
-end)
