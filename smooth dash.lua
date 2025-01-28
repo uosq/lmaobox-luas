@@ -125,6 +125,7 @@ local function Warp(msg)
 			buffer:SetCurBit(6)
 			msg:ReadFromBitBuffer(buffer)
 			charged_ticks = charged_ticks - 1
+			buffer:Delete()
 			return true
 		end
 
