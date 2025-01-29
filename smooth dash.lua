@@ -109,7 +109,7 @@ local function handle_input(usercmd)
 		last_pressed_tick = tick
 	end
 
-	shooting = usercmd.buttons & IN_ATTACK ~= 0 or aimbot.GetAimbotTarget() >= 1 -- only works with normal player input, aimbot doesnt change this!
+	shooting = usercmd.buttons & IN_ATTACK ~= 0 -- only works with normal player input, aimbot doesnt change this!
 	maxticks = GetMaxPossibleTicks()
 	charged_ticks = clamp(charged_ticks, 0, maxticks)
 end
@@ -133,22 +133,13 @@ local function Warp(msg)
 		and gui.GetValue("anti aim") == 0
 		and gui.GetValue("fake lag") == 0
 	then
+		--- just return early
+		if disable_with_projectiles and isprojectileweapon then
+			return true
+		end
+
 		if warping and charged_ticks > 0 and not recharging then
-			local method, projectile_method = gui.GetValue("aim method"), gui.GetValue("aim method (projectile)")
-			local projectile_method_is_none = projectile_method == "none"
-			local projectile_method_is_psilent = projectile_method == "silent +"
-			local method_is_psilent = method == "silent +"
-			if
-				(shooting and not shoot_while_warp)
-				or (
-					disable_with_projectiles
-					and isprojectileweapon
-					and (
-						projectile_method_is_none == true and method_is_psilent == true
-						or projectile_method_is_psilent == true
-					) --and gui.GetValue("aim method (projectile)") == "silent +"
-				)
-			then
+			if shooting and not shoot_while_warp then
 				return true
 			end
 			local buffer = create_clc_move_buffer(2, 1)
