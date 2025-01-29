@@ -12,7 +12,7 @@ local passive_recharge_ticks = 2 --- how much ticks should it recharge every tim
 local passive_recharge_time_seconds = 1 --- how often should be recharge passively in seconds?
 
 local shoot_in_recharge = true -- if you try to shoot while recharging it'll stop until you stop shooting (pressing M1 or primary fire key)
-local shoot_in_warp = true -- disable this if you want to stop warping while shooting
+local shoot_while_warp = true -- disable this if you want to stop warping while shooting
 
 local disable_with_projectiles = true -- disables warping when you're holding a projectile weapon and aim method (projectile) is "silent +"
 --- end of settings
@@ -135,7 +135,7 @@ local function Warp(msg)
 	then
 		if warping and charged_ticks > 0 and not recharging then
 			if
-				(shooting and not shoot_in_warp)
+				(shooting and not shoot_while_warp)
 				or (
 					disable_with_projectiles
 					and isprojectileweapon
