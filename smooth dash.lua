@@ -109,7 +109,7 @@ local function handle_input(usercmd)
 		last_pressed_tick = tick
 	end
 
-	shooting = usercmd.buttons & IN_ATTACK ~= 0 and aimbot.GetAimbotTarget() >= 1 -- only works with normal player input, aimbot doesnt change this!
+	shooting = usercmd.buttons & IN_ATTACK ~= 0 or aimbot.GetAimbotTarget() >= 1 -- only works with normal player input, aimbot doesnt change this!
 	maxticks = GetMaxPossibleTicks()
 	charged_ticks = clamp(charged_ticks, 0, maxticks)
 end
