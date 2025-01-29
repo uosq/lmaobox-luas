@@ -135,7 +135,10 @@ local function Warp(msg)
 	then
 		--- just return early
 		if disable_with_projectiles and isprojectileweapon then
-			return true
+			local method, projectile_method = gui.GetValue("aim method"), gui.GetValue("aim method (projectile)")
+			if (projectile_method == "none" and method == "silent +") or (projectile_method == "silent +") then
+				return true
+			end
 		end
 
 		if warping and charged_ticks > 0 and not recharging then
