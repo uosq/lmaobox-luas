@@ -100,7 +100,7 @@ local function handle_input(usercmd)
 	isprojectileweapon = not weapon:IsMeleeWeapon()
 		and weapon:GetWeaponProjectileType() ~= E_ProjectileType.TF_PROJECTILE_BULLET
 
-	warping = input.IsButtonDown(send_key) and charged_ticks > 0
+	warping = input.IsButtonDown(send_key)
 
 	local state, tick = input.IsButtonPressed(toggle_passive_recharge_key)
 	if state and tick ~= last_pressed_tick then
@@ -134,12 +134,19 @@ local function Warp(msg)
 		and gui.GetValue("fake lag") == 0
 	then
 		if warping and charged_ticks > 0 and not recharging then
+			local method, projectile_method = gui.GetValue("aim method"), gui.GetValue("aim method (projectile)")
+			local projectile_method_is_none = projectile_method == "none"
+			local projectile_method_is_psilent = projectile_method == "silent +"
+			local method_is_psilent = method == "silent +"
 			if
 				(shooting and not shoot_while_warp)
 				or (
 					disable_with_projectiles
 					and isprojectileweapon
-					and gui.GetValue("aim method (projectile)") == "silent +"
+					and (
+						projectile_method_is_none == true and method_is_psilent == true
+						or projectile_method_is_psilent == true
+					) --and gui.GetValue("aim method (projectile)") == "silent +"
 				)
 			then
 				return true
