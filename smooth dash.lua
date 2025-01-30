@@ -12,9 +12,16 @@ local passive_recharge_ticks = 2 --- how much ticks should it recharge every tim
 local passive_recharge_time_seconds = 1 --- how often should be recharge passively in seconds?
 
 local shoot_in_recharge = true -- if you try to shoot while recharging it'll stop until you stop shooting (pressing M1 or primary fire key)
-local shoot_while_warp = true -- disable this if you want to stop warping while shooting
+local shoot_while_warp = true -- disable this if you want to stop warping while shooting or aimbot is shooting
+
+local warp_standing_still = false -- enable if you want to warp while not moving (why?)
 
 local disable_with_projectiles = true -- disables warping when you're holding a projectile weapon and aim method (projectile) is "silent +"
+
+--- this option affects shoot_while_warp and shoot_in_recharge
+local check_aimbot_target = true -- WARNING: this will effectively disable recharging with aimbot always turned on!
+
+local recharge_standing_still = false --- i dont like this but well if you really want it, its an option ig
 --- end of settings
 
 --- the charge bar is not mine, i pasted it from another script, idk who tho im sorry :(
@@ -75,11 +82,21 @@ local function create_clc_move_buffer(new_commands, backup_commands)
 end
 
 ---@param bf BitBuffer
-local function clc_move_tostring(bf)
-	local str = "clc_Move, new commands: %i, backup commands: %i, bytes: %i"
+local function clc_move_read(bf)
 	bf:SetCurBit(6) -- skip msg type
 	local m_nNewCommands = bf:ReadInt(NEW_COMMANDS_SIZE)
 	local m_nBackupCommands = bf:ReadInt(BACKUP_COMMANDS_SIZE)
+	bf:SetCurBit(6)
+	return { m_nNewCommands = m_nNewCommands, m_nBackupCommands = m_nBackupCommands }
+end
+
+---@param bf BitBuffer
+local function clc_move_tostring(bf)
+	local clc_move = clc_move_read(bf)
+	local str = "clc_Move, new commands: %i, backup commands: %i, bytes: %i"
+	bf:SetCurBit(6) -- skip msg type
+	local m_nNewCommands = clc_move.m_nNewCommands
+	local m_nBackupCommands = clc_move.m_nBackupCommands
 	local m_nLength = bf:GetDataBytesLength()
 	bf:SetCurBit(6)
 	return string.format(str, tostring(m_nNewCommands), tostring(m_nBackupCommands), tostring(m_nLength))
@@ -103,13 +120,19 @@ local function handle_input(usercmd)
 	warping = input.IsButtonDown(send_key)
 
 	local state, tick = input.IsButtonPressed(toggle_passive_recharge_key)
-	if state and tick ~= last_pressed_tick then
+	if state and tick ~= last_pressed_tick and not engine.IsChatOpen() then
 		passive_recharge = not passive_recharge
 		client.ChatPrintf("\x01Passive recharge is now: " .. tostring(passive_recharge and "on" or "off"))
 		last_pressed_tick = tick
 	end
 
-	shooting = usercmd.buttons & IN_ATTACK ~= 0 -- only works with normal player input, aimbot doesnt change this!
+	--shooting = usercmd.buttons & IN_ATTACK ~= 0 -- only works with normal player input, aimbot doesnt change this!
+	if check_aimbot_target then
+		shooting = usercmd.buttons & IN_ATTACK ~= 0
+			or (aimbot.GetAimbotTarget() >= 1 and input.IsButtonDown(gui.GetValue("aim key"))) -- aimbot will mess with this
+	else
+		shooting = usercmd.buttons & IN_ATTACK ~= 0
+	end
 	maxticks = GetMaxPossibleTicks()
 	charged_ticks = clamp(charged_ticks, 0, maxticks)
 end
@@ -142,15 +165,24 @@ local function Warp(msg)
 		end
 
 		if warping and charged_ticks > 0 and not recharging then
-			if shooting and not shoot_while_warp then
+			if
+				(shooting and not shoot_while_warp)
+				or (not warp_standing_still and localplayer:EstimateAbsVelocity():Length() <= 0)
+			then
 				return true
 			end
-			local buffer = create_clc_move_buffer(2, 1)
+
+			local orig_bf = BitBuffer()
+			msg:WriteToBitBuffer(orig_bf)
+			local orig_clc_move = clc_move_read(orig_bf)
+			local buffer = create_clc_move_buffer(orig_clc_move.m_nBackupCommands, orig_clc_move.m_nNewCommands)
+			--local buffer = create_clc_move_buffer(2, 1) --- apparently just inverting backup and cmd commands is enough to make 2x speedhack
 			buffer:SetCurBit(6)
 			msg:ReadFromBitBuffer(buffer)
 			buffer:SetCurBit(6)
 			charged_ticks = charged_ticks - 1
 			buffer:Delete()
+			orig_bf:Delete()
 			return true
 		end
 
@@ -159,8 +191,14 @@ local function Warp(msg)
 			return true
 		end
 
-		--- how to make it stop recharging while shooting?
-		if input.IsButtonDown(charge_key) and charged_ticks < maxticks and not warping then
+		if
+			(
+				input.IsButtonDown(charge_key)
+				or (recharge_standing_still and localplayer:EstimateAbsVelocity():Length() == 0)
+			)
+			and charged_ticks < maxticks
+			and not warping
+		then
 			recharging = true
 			charged_ticks = charged_ticks + 1
 			recharging = false
