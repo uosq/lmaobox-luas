@@ -155,6 +155,9 @@ local function Warp(msg)
 		and localplayer:IsAlive()
 		and gui.GetValue("anti aim") == 0
 		and gui.GetValue("fake lag") == 0
+		and not engine.IsChatOpen()
+		and not engine.Con_IsVisible()
+		and not engine.IsGameUIVisible()
 	then
 		--- just return early
 		if disable_with_projectiles and isprojectileweapon then
