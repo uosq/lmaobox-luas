@@ -19,7 +19,6 @@ local AntiAim = true
 local Backtrack = true
 
 local EnemyOnly = true
-
 ---
 
 local materials = materials
@@ -350,11 +349,17 @@ local function handleDrawModel(param)
 	local color = entity_colors[index]
 	if not color then return end
 	setctx(ctx, color)
+	change_depth(ctx, currentMode)
 
 	--- ViewModel is strange, overriding DepthRange makes it get behind other models, so i gotta do this
-	if entity:GetClass() ~= "CTFViewModel" then
-		change_depth(ctx, currentMode)
+	if entity:GetClass() == "CTFViewModel" then
+		change_depth(ctx, 0.1)
 	end
+
+	--- change player model and reset ctx to default color
+	ctx:Execute()
+	change_depth(ctx, 1)
+	setctx(ctx, setcolor(255, 255, 255, 255))
 end
 
 callbacks.Register("DrawModel", handleDrawModel)
