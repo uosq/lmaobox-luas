@@ -16,12 +16,11 @@ local shoot_while_warp = true -- disable this if you want to stop warping while 
 
 local warp_standing_still = false -- enable if you want to warp while not moving (why?)
 
-local disable_with_projectiles = true -- disables warping when you're holding a projectile weapon and aim method (projectile) is "silent +"
-
 --- this option affects shoot_while_warp and shoot_in_recharge
 local check_aimbot_target = true -- WARNING: this will effectively disable recharging with aimbot always turned on!
 
 local recharge_standing_still = false --- i dont like this but well if you really want it, its an option ig
+local recharge_in_air = true --- disable to stop being able to recharge while in the air
 --- end of settings
 
 --- the charge bar is not mine, i pasted it from another script, idk who tho im sorry :(
@@ -45,18 +44,33 @@ local last_pressed_tick = 0
 local warping = false
 local recharging = false
 local shooting = false
+local on_ground = true
 
-local isprojectileweapon = false
+local BACKUP_COMMANDS_SIZE = 3
+local NEW_COMMANDS_SIZE = 4
 
 --- disable tick shifting stuff from lbox
 gui.SetValue("double tap", "none")
 gui.SetValue("dash move key", 0)
 
+local function ChatPrintf(...)
+	local args = { ... }
+	for i = 1, #args do
+		client.ChatPrintf(args[i])
+	end
+end
+
+if not clientstate:GetNetChannel() then
+	printc(255, 150, 150, 255, "Disabled double tap and dash", "You can recharge with anti aim, it will mostly work")
+else
+	ChatPrintf("Disabled double tap and dash", "You can recharge with anti aim, it will mostly work")
+end
+
 -- tbh i dont think we should even get sv_maxusrcmdprocessticks, its not like valve's or community servers will change sv_maxusrcmdprocessticks to something bigger
 -- sticking with the default 24 seems pretty reasonable to me
 local function GetMaxPossibleTicks()
 	local sv_maxusrcmdprocessticks = client.GetConVar("sv_maxusrcmdprocessticks") - 0 -- truly the most math of math i have ever mathed, fuck lsp warning about casting any to integer >:(
-	return sv_maxusrcmdprocessticks == 0 and 9999 or sv_maxusrcmdprocessticks -- default is 24 for valve servers
+	return sv_maxusrcmdprocessticks == 0 and 999999999 or sv_maxusrcmdprocessticks -- default is 24 for valve servers
 end
 
 local function clamp(value, min, max)
@@ -65,41 +79,45 @@ end
 
 local maxticks = GetMaxPossibleTicks()
 
-local clc_Move_type = 9
-local msg_type_size = 6
-
-local BACKUP_COMMANDS_SIZE = 3
-local NEW_COMMANDS_SIZE = 4
-
+---@param new_commands integer
+---@param backup_commands integer
 local function create_clc_move_buffer(new_commands, backup_commands)
 	local bf = BitBuffer()
 	bf:SetCurBit(0)
-	bf:WriteInt(clc_Move_type, msg_type_size)
 	bf:WriteInt(new_commands, NEW_COMMANDS_SIZE) -- m_nNewCommands
 	bf:WriteInt(backup_commands, BACKUP_COMMANDS_SIZE) -- m_nBackupCommands
+	bf:Reset()
 	bf:SetCurBit(0)
 	return bf
 end
 
 ---@param bf BitBuffer
 local function clc_move_read(bf)
-	bf:SetCurBit(6) -- skip msg type
+	bf:SetCurBit(0)
 	local m_nNewCommands = bf:ReadInt(NEW_COMMANDS_SIZE)
 	local m_nBackupCommands = bf:ReadInt(BACKUP_COMMANDS_SIZE)
-	bf:SetCurBit(6)
-	return { m_nNewCommands = m_nNewCommands, m_nBackupCommands = m_nBackupCommands }
+	bf:SetCurBit(0)
+	return { m_nNewCommands = m_nNewCommands, m_nBackupCommands = m_nBackupCommands, m_nLength = m_nLength }
 end
 
 ---@param bf BitBuffer
 local function clc_move_tostring(bf)
 	local clc_move = clc_move_read(bf)
 	local str = "clc_Move, new commands: %i, backup commands: %i, bytes: %i"
-	bf:SetCurBit(6) -- skip msg type
+	bf:SetCurBit(0)
 	local m_nNewCommands = clc_move.m_nNewCommands
 	local m_nBackupCommands = clc_move.m_nBackupCommands
-	local m_nLength = bf:GetDataBytesLength()
-	bf:SetCurBit(6)
-	return string.format(str, tostring(m_nNewCommands), tostring(m_nBackupCommands), tostring(m_nLength))
+	local m_nLength = clc_move.m_nLength
+	bf:SetCurBit(0)
+	return string.format(str, tostring(m_nNewCommands), tostring(m_nBackupCommands), m_nLength)
+end
+
+local function CanChokeTick()
+	return clientstate:GetChokedCommands() < maxticks
+end
+
+local function CanShiftTick()
+	return clientstate:GetChokedCommands() == 0
 end
 
 ---@param usercmd UserCmd
@@ -109,20 +127,12 @@ local function handle_input(usercmd)
 		return
 	end
 
-	local weapon = localplayer:GetPropEntity("m_hActiveWeapon")
-	if not weapon then
-		return
-	end
-
-	isprojectileweapon = not weapon:IsMeleeWeapon()
-		and weapon:GetWeaponProjectileType() ~= E_ProjectileType.TF_PROJECTILE_BULLET
-
 	warping = input.IsButtonDown(send_key)
 
 	local state, tick = input.IsButtonPressed(toggle_passive_recharge_key)
 	if state and tick ~= last_pressed_tick and not engine.IsChatOpen() then
 		passive_recharge = not passive_recharge
-		client.ChatPrintf("\x01Passive recharge is now: " .. tostring(passive_recharge and "on" or "off"))
+		ChatPrintf("\x01Passive recharge is now: " .. tostring(passive_recharge and "on" or "off"))
 		last_pressed_tick = tick
 	end
 
@@ -135,6 +145,7 @@ local function handle_input(usercmd)
 	end
 	maxticks = GetMaxPossibleTicks()
 	charged_ticks = clamp(charged_ticks, 0, maxticks)
+	on_ground = localplayer:GetPropInt("m_fFlags") & FL_ONGROUND ~= 0
 end
 
 ---@param msg NetMessage
@@ -153,21 +164,11 @@ local function Warp(msg)
 		msg:GetType() == 9
 		and localplayer
 		and localplayer:IsAlive()
-		and gui.GetValue("anti aim") == 0
-		and gui.GetValue("fake lag") == 0
 		and not engine.IsChatOpen()
 		and not engine.Con_IsVisible()
 		and not engine.IsGameUIVisible()
 	then
-		--- just return early
-		if disable_with_projectiles and isprojectileweapon then
-			local method, projectile_method = gui.GetValue("aim method"), gui.GetValue("aim method (projectile)")
-			if (projectile_method == "none" and method == "silent +") or (projectile_method == "silent +") then
-				return true
-			end
-		end
-
-		if warping and charged_ticks > 0 and not recharging then
+		if warping and charged_ticks > 0 and not recharging and CanShiftTick() then
 			if
 				(shooting and not shoot_while_warp)
 				or (not warp_standing_still and localplayer:EstimateAbsVelocity():Length() <= 0)
@@ -175,22 +176,16 @@ local function Warp(msg)
 				return true
 			end
 
-			local orig_bf = BitBuffer()
-			msg:WriteToBitBuffer(orig_bf)
-			local orig_clc_move = clc_move_read(orig_bf)
-			local buffer = create_clc_move_buffer(orig_clc_move.m_nBackupCommands, orig_clc_move.m_nNewCommands)
-			--local buffer = create_clc_move_buffer(2, 1) --- apparently just inverting backup and cmd commands is enough to make 2x speedhack
-			buffer:SetCurBit(6)
+			local buffer = create_clc_move_buffer(2, 1)
 			msg:ReadFromBitBuffer(buffer)
-			buffer:SetCurBit(6)
+
 			charged_ticks = charged_ticks - 1
 			buffer:Delete()
-			orig_bf:Delete()
 			return true
 		end
 
 		--- early return so we dont recharge
-		if shooting and shoot_in_recharge then
+		if (shooting and shoot_in_recharge) or (not on_ground and not recharge_in_air) or not CanChokeTick() then
 			return true
 		end
 
@@ -204,6 +199,14 @@ local function Warp(msg)
 		then
 			recharging = true
 			charged_ticks = charged_ticks + 1
+			local netchan = clientstate:GetNetChannel()
+			if netchan then
+				local m_nOutSequenceNr, m_nInsequenceNr, m_nOutSequenceNrAck = netchan:GetSequenceData()
+				m_nOutSequenceNr = m_nOutSequenceNr + 1
+				--- appparently its to say its choked?
+				--- im not sure but nothing else happens when i use this so idc i'll keep it until i have problems
+				netchan:SetSequenceData(m_nOutSequenceNr, m_nInsequenceNr, m_nOutSequenceNrAck)
+			end
 			recharging = false
 			return false
 		end
@@ -254,12 +257,8 @@ local function Draw()
 	end
 	draw.FilledRect(math.floor(barX), math.floor(barY), math.floor(barX + filledWidth), math.floor(barY + barHeight))
 
-	local text
-	if cant_warp then
-		text = "FAKE LAG / ANTIAIM ENABLED"
-	else
-		text = string.format("%i / %i", used_ticks, maxticks)
-	end
+	local text = string.format("%i / %i", used_ticks, maxticks)
+
 	draw.SetFont(font)
 	local textW, textH = draw.GetTextSize(text)
 	local textX, textY =
