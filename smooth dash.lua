@@ -6,10 +6,16 @@ Made by navet
 local charge_key = gui.GetValue("force recharge key") --- change this to E_ButtonCode.KEY_something if you want to change the key
 local send_key = gui.GetValue("double tap key") --- change this to E_ButtonCode.KEY_something if you want to change the key
 local toggle_passive_recharge_key = E_ButtonCode.KEY_R --- Toggles passive recharge |change this to E_ButtonCode.KEY_thekeyyouwant EXAMPLE: E_ButtonCode.KEY_R
+local increase_warp_delay, decrease_warp_delay = E_ButtonCode.KEY_LEFT, E_ButtonCode.KEY_RIGHT
+local increase_recharge_delay, decrease_recharge_delay = E_ButtonCode.KEY_UP, E_ButtonCode.KEY_DOWN
 
 local passive_recharge = true -- if you want to not recharge passively make this false
 local passive_recharge_ticks = 2 --- how much ticks should it recharge every time |  WARNING: DOESNT WORK YET! Waiting for netchannel:SendNetMsg() fix!
 local passive_recharge_time_seconds = 1 --- how often should be recharge passively in seconds?
+
+local passive_recharge_randomized_time = true --- makes the recharge time random, passive_recharge_time_seconds is ignored
+local passive_recharge_randomized_min_time = 0.5 --- the fastest the randomized time can charge ticks
+local passive_recharge_randomized_max_time = 5 --- the slowest the randomized time can charge ticks
 
 local shoot_in_recharge = true -- if you try to shoot while recharging it'll stop until you stop shooting (pressing M1 or primary fire key)
 local shoot_while_warp = true -- disable this if you want to stop warping while shooting or aimbot is shooting
@@ -21,6 +27,9 @@ local check_aimbot_target = true -- WARNING: this will effectively disable recha
 
 local recharge_standing_still = false --- i dont like this but well if you really want it, its an option ig
 local recharge_in_air = true --- disable to stop being able to recharge while in the air
+
+local delay_recharge = 1 --- in ticks, so like 1 is delay warp by 1 tick, so it will wark only every 2 ticks, and so on
+local delay_warp = 1 --- like delay_recharge
 --- end of settings
 
 --- the charge bar is not mine, i pasted it from another script, idk who tho im sorry :(
@@ -130,19 +139,83 @@ local function handle_input(usercmd)
 	warping = input.IsButtonDown(send_key)
 
 	local state, tick = input.IsButtonPressed(toggle_passive_recharge_key)
-	if state and tick ~= last_pressed_tick and not engine.IsChatOpen() then
+	if
+		state
+		and tick ~= last_pressed_tick
+		and not engine.IsChatOpen()
+		and not engine.IsGameUIVisible()
+		and not engine.Con_IsVisible()
+	then
 		passive_recharge = not passive_recharge
 		ChatPrintf("\x01Passive recharge is now: " .. tostring(passive_recharge and "on" or "off"))
 		last_pressed_tick = tick
 	end
 
+	state, tick = input.IsButtonPressed(increase_warp_delay)
+	if
+		state
+		and tick ~= last_pressed_tick
+		and not engine.IsChatOpen()
+		and not engine.IsGameUIVisible()
+		and not engine.Con_IsVisible()
+	then
+		delay_warp = delay_warp + 1
+		ChatPrintf("\x04Increased warp delay: " .. delay_warp)
+		last_pressed_tick = tick
+	end
+
+	state, tick = input.IsButtonPressed(decrease_warp_delay)
+	if
+		state
+		and tick ~= last_pressed_tick
+		and not engine.IsChatOpen()
+		and not engine.IsGameUIVisible()
+		and not engine.Con_IsVisible()
+	then
+		if delay_warp > 1 then
+			delay_warp = delay_warp - 1
+			ChatPrintf("\x04Decreased warp delay: " .. delay_warp)
+			last_pressed_tick = tick
+		end
+	end
+
+	state, tick = input.IsButtonPressed(increase_recharge_delay)
+	if
+		state
+		and tick ~= last_pressed_tick
+		and not engine.IsChatOpen()
+		and not engine.IsGameUIVisible()
+		and not engine.Con_IsVisible()
+	then
+		delay_recharge = delay_recharge + 1
+		ChatPrintf("\x04Increased recharge delay: " .. delay_recharge)
+		last_pressed_tick = tick
+	end
+
+	state, tick = input.IsButtonPressed(decrease_recharge_delay)
+	if
+		state
+		and tick ~= last_pressed_tick
+		and not engine.IsChatOpen()
+		and not engine.IsGameUIVisible()
+		and not engine.Con_IsVisible()
+	then
+		if delay_recharge > 1 then
+			delay_recharge = delay_recharge - 1
+			ChatPrintf("\x04Decreased recharge delay: " .. delay_recharge)
+			last_pressed_tick = tick
+		end
+	end
+
 	--shooting = usercmd.buttons & IN_ATTACK ~= 0 -- only works with normal player input, aimbot doesnt change this!
+
 	if check_aimbot_target then
 		shooting = usercmd.buttons & IN_ATTACK ~= 0
 			or (aimbot.GetAimbotTarget() >= 1 and input.IsButtonDown(gui.GetValue("aim key"))) -- aimbot will mess with this
 	else
 		shooting = usercmd.buttons & IN_ATTACK ~= 0
 	end
+
 	maxticks = GetMaxPossibleTicks()
 	charged_ticks = clamp(charged_ticks, 0, maxticks)
 	on_ground = localplayer:GetPropInt("m_fFlags") & FL_ONGROUND ~= 0
@@ -176,11 +249,13 @@ local function Warp(msg)
 				return true
 			end
 
-			local buffer = create_clc_move_buffer(2, 1)
-			msg:ReadFromBitBuffer(buffer)
+			if globals.TickCount() % delay_warp == 0 then
+				local buffer = create_clc_move_buffer(2, 1)
+				msg:ReadFromBitBuffer(buffer)
 
-			charged_ticks = charged_ticks - 1
-			buffer:Delete()
+				charged_ticks = charged_ticks - 1
+				buffer:Delete()
+			end
 			return true
 		end
 
@@ -197,18 +272,13 @@ local function Warp(msg)
 			and charged_ticks < maxticks
 			and not warping
 		then
-			recharging = true
-			charged_ticks = charged_ticks + 1
-			local netchan = clientstate:GetNetChannel()
-			if netchan then
-				local m_nOutSequenceNr, m_nInsequenceNr, m_nOutSequenceNrAck = netchan:GetSequenceData()
-				m_nOutSequenceNr = m_nOutSequenceNr + 1
-				--- appparently its to say its choked?
-				--- im not sure but nothing else happens when i use this so idc i'll keep it until i have problems
-				netchan:SetSequenceData(m_nOutSequenceNr, m_nInsequenceNr, m_nOutSequenceNrAck)
+			if globals.TickCount() % delay_recharge == 0 then
+				recharging = true
+				charged_ticks = charged_ticks + 1
+				recharging = false
+				return false
 			end
-			recharging = false
-			return false
+			return true
 		end
 
 		if
@@ -220,7 +290,10 @@ local function Warp(msg)
 		then
 			recharging = true
 			charged_ticks = charged_ticks + 1
-			next_recharge_tick = globals.TickCount() + passive_recharge_time
+			local time = passive_recharge_randomized_time == true
+					and engine.RandomFloat(passive_recharge_randomized_min_time, passive_recharge_randomized_max_time)
+				or passive_recharge_time
+			next_recharge_tick = globals.TickCount() + (time * 66.67)
 			recharging = false
 			return false
 		end
@@ -256,6 +329,24 @@ local function Draw()
 		draw.Color(97, 97, 76, 255) -- darker green
 	end
 	draw.FilledRect(math.floor(barX), math.floor(barY), math.floor(barX + filledWidth), math.floor(barY + barHeight))
+
+	local str1, str2 = "w: %i", "r: %i"
+	str1 = string.format(str1, delay_warp)
+	str2 = string.format(str2, delay_recharge)
+
+	draw.SetFont(font)
+	local delay_warp_X, delay_warp_Y = barX + backgroundOffset, barY + math.floor(barHeight / 2) - (12 / 2)
+
+	draw.Color(255, 255, 255, 255)
+	draw.Text(delay_warp_X, delay_warp_Y, str1)
+
+	draw.SetFont(font)
+	local delay_recharge_X, delay_recharge_Y =
+		barX + barWidth - backgroundOffset - math.floor(draw.GetTextSize(str2)),
+		barY + math.floor(barHeight / 2) - (12 / 2)
+
+	draw.Color(255, 255, 255, 255)
+	draw.Text(delay_recharge_X, delay_recharge_Y, str2)
 
 	local text = string.format("%i / %i", used_ticks, maxticks)
 
