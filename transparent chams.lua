@@ -351,7 +351,7 @@ local function handleDrawModel(param)
 	setctx(ctx, color)
 	change_depth(ctx, currentMode)
 
-	--- ViewModel is strange, overriding DepthRange makes it get behind other models, so i gotta do this
+	--- viewmodel i think is in depth 0.2 or 0.3, so we might draw on top of him if
 	if entity:GetClass() == "CTFViewModel" then
 		change_depth(ctx, 0.1)
 	end
