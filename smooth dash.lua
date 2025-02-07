@@ -1,67 +1,79 @@
 --[[
-Made by navet
+  Made by Navet
 --]]
 
---- settings
-local charge_key = gui.GetValue("force recharge key") --- change this to E_ButtonCode.KEY_something if you want to change the key
-local send_key = gui.GetValue("double tap key") --- change this to E_ButtonCode.KEY_something if you want to change the key
-local toggle_passive_recharge_key = E_ButtonCode.KEY_R --- Toggles passive recharge |change this to E_ButtonCode.KEY_thekeyyouwant EXAMPLE: E_ButtonCode.KEY_R
-local increase_warp_delay, decrease_warp_delay = E_ButtonCode.KEY_LEFT, E_ButtonCode.KEY_RIGHT
-local increase_recharge_delay, decrease_recharge_delay = E_ButtonCode.KEY_UP, E_ButtonCode.KEY_DOWN
+---@diagnostic disable: cast-local-type
 
-local passive_recharge = true -- if you want to not recharge passively make this false
-local passive_recharge_ticks = 2 --- how much ticks should it recharge every time |  WARNING: DOESNT WORK YET! Waiting for netchannel:SendNetMsg() fix!
-local passive_recharge_time_seconds = 1 --- how often should be recharge passively in seconds?
+local settings = {
 
-local passive_recharge_randomized_time = true --- makes the recharge time random, passive_recharge_time_seconds is ignored
-local passive_recharge_randomized_min_time = 0.5 --- the fastest the randomized time can charge ticks
-local passive_recharge_randomized_max_time = 5 --- the slowest the randomized time can charge ticks
+	--- both recharging and warp checks these
+	both = {
+		check_aimbot_target = true,
+		ignore_spectators = true,
+	},
 
-local shoot_in_recharge = true -- if you try to shoot while recharging it'll stop until you stop shooting (pressing M1 or primary fire key)
-local shoot_while_warp = true -- disable this if you want to stop warping while shooting or aimbot is shooting
+	warp = {
+		key = gui.GetValue("double tap key"), --- you can change to E_ButtonCode.KEY_R for example
 
-local warp_standing_still = false -- enable if you want to warp while not moving (why?)
+		delay = 0, --- how many ticks to wait to warp again (0 means as soon as possible)
 
---- this option affects shoot_while_warp and shoot_in_recharge
-local check_aimbot_target = true -- WARNING: this will effectively disable recharging with aimbot always turned on!
+		while_shooting = true, --- if its disabled, we stop warping until you or aimbot stop shooting
+		standing_still = false,
+	},
 
-local recharge_standing_still = false --- i dont like this but well if you really want it, its an option ig
-local recharge_in_air = true --- disable to stop being able to recharge while in the air
+	recharge = {
+		key = gui.GetValue("force recharge key"),
 
-local delay_recharge = 1 --- in ticks, so like 1 is delay warp by 1 tick, so it will wark only every 2 ticks, and so on
-local delay_warp = 1 --- like delay_recharge
+		delay = 0, --- how many ticks to wait before recharging again (0 means as soon as possible)
+
+		while_shooting = false,
+		standing_still = true,
+	},
+
+	passive_recharge = {
+		enabled = true,
+		while_dead = true,
+		time = 1, --- time between each passive recharge (in seconds)
+		toggle_key = E_ButtonCode.KEY_R,
+
+		randomized = {
+			enabled = true, --- randomizes when we'll recharge and ignores passive_recharge.time
+			min_time = 0.5,
+			max_time = 5,
+		},
+	},
+}
 --- end of settings
-
---- the charge bar is not mine, i pasted it from another script, idk who tho im sorry :(
-local font = draw.CreateFont("TF2 BUILD", 12, 1000)
-local barWidth = 200
-local barHeight = 15
-local backgroundOffset = 5
-
-local screenX, screenY = draw.GetScreenSize()
-local barX = math.floor(screenX / 2 - barWidth / 2)
-local barY = math.floor(screenY / 2) + 20
+--- dont change stuff below this line pls
 
 local charged_ticks = 0
-
-local localplayer = nil
-
-local passive_recharge_time = passive_recharge_time_seconds * 66.67 --- 66.67 is 1 second in source engine spaghetti
-local next_recharge_tick = 0
+local next_passive_recharge_tick = 0
 local last_pressed_tick = 0
+local maxticks = 0
 
-local warping = false
-local recharging = false
+local warping, recharging = false, false
 local shooting = false
-local on_ground = true
+local localplayer_alive = false
+local localplayer_velocity = 0
+local localplayer_isRed = false
+local spectated = false
 
-local BACKUP_COMMANDS_SIZE = 3
-local NEW_COMMANDS_SIZE = 4
+local screenX <const>, screenY <const> = draw:GetScreenSize()
+local centerX <const>, centerY <const> = math.floor(screenX / 2), math.floor(screenY / 2)
+local unformatted_text <const> = "%i / %i"
+local font <const> = draw.CreateFont("TF2 BUILD", 16, 1000)
 
---- disable tick shifting stuff from lbox
+local NEW_COMMANDS_SIZE <const> = 4
+local BACKUP_COMMANDS_SIZE <const> = 3
+
+local SIGNONSTATE_TYPE <const> = 6
+local CLC_MOVE_TYPE <const> = 9
+
+--- disable lbox's tick shifting stuff
 gui.SetValue("double tap", "none")
 gui.SetValue("dash move key", 0)
 
+---@param ... string
 local function ChatPrintf(...)
 	local args = { ... }
 	for i = 1, #args do
@@ -72,53 +84,41 @@ end
 if not clientstate:GetNetChannel() then
 	printc(255, 150, 150, 255, "Disabled double tap and dash", "You can recharge with anti aim, it will mostly work")
 else
-	ChatPrintf("Disabled double tap and dash", "You can recharge with anti aim, it will mostly work")
-end
-
--- tbh i dont think we should even get sv_maxusrcmdprocessticks, its not like valve's or community servers will change sv_maxusrcmdprocessticks to something bigger
--- sticking with the default 24 seems pretty reasonable to me
-local function GetMaxPossibleTicks()
-	local sv_maxusrcmdprocessticks = client.GetConVar("sv_maxusrcmdprocessticks") - 0 -- truly the most math of math i have ever mathed, fuck lsp warning about casting any to integer >:(
-	return sv_maxusrcmdprocessticks == 0 and 999999999 or sv_maxusrcmdprocessticks -- default is 24 for valve servers
+	ChatPrintf("Disabled double tap and dash", "You can recharge with anti aim", "Using ")
 end
 
 local function clamp(value, min, max)
 	return math.min(math.max(value, min), max)
 end
 
-local maxticks = GetMaxPossibleTicks()
+local function clc_Move()
+	local t = { new_commands = 2, backup_commands = 1, buffer = BitBuffer() }
 
----@param new_commands integer
----@param backup_commands integer
-local function create_clc_move_buffer(new_commands, backup_commands)
-	local bf = BitBuffer()
-	bf:SetCurBit(0)
-	bf:WriteInt(new_commands, NEW_COMMANDS_SIZE) -- m_nNewCommands
-	bf:WriteInt(backup_commands, BACKUP_COMMANDS_SIZE) -- m_nBackupCommands
-	bf:Reset()
-	bf:SetCurBit(0)
-	return bf
+	function t:init()
+		self.buffer:Reset()
+		self.buffer:WriteInt(self.new_commands, NEW_COMMANDS_SIZE)
+		self.buffer:WriteInt(self.backup_commands, BACKUP_COMMANDS_SIZE)
+		self.buffer:Reset()
+	end
+
+	setmetatable(t, {
+		__close = function(this)
+			this.buffer:Delete()
+			this.buffer = nil
+			this.new_commands = nil
+			this.backup_commands = nil
+		end,
+	})
+
+	return t
 end
 
----@param bf BitBuffer
-local function clc_move_read(bf)
-	bf:SetCurBit(0)
-	local m_nNewCommands = bf:ReadInt(NEW_COMMANDS_SIZE)
-	local m_nBackupCommands = bf:ReadInt(BACKUP_COMMANDS_SIZE)
-	bf:SetCurBit(0)
-	return { m_nNewCommands = m_nNewCommands, m_nBackupCommands = m_nBackupCommands, m_nLength = m_nLength }
-end
-
----@param bf BitBuffer
-local function clc_move_tostring(bf)
-	local clc_move = clc_move_read(bf)
-	local str = "clc_Move, new commands: %i, backup commands: %i, bytes: %i"
-	bf:SetCurBit(0)
-	local m_nNewCommands = clc_move.m_nNewCommands
-	local m_nBackupCommands = clc_move.m_nBackupCommands
-	local m_nLength = clc_move.m_nLength
-	bf:SetCurBit(0)
-	return string.format(str, tostring(m_nNewCommands), tostring(m_nBackupCommands), m_nLength)
+local function GetMaxServerTicks()
+	local sv_maxusrcmdprocessticks = client.GetConVar("sv_maxusrcmdprocessticks")
+	if sv_maxusrcmdprocessticks then
+		return sv_maxusrcmdprocessticks > 0 and sv_maxusrcmdprocessticks or 9999999
+	end
+	return 24
 end
 
 local function CanChokeTick()
@@ -129,237 +129,275 @@ local function CanShiftTick()
 	return clientstate:GetChokedCommands() == 0
 end
 
+--- Resets the variables to their default state when joining a new server
+---@param msg NetMessage
+local function HandleJoinServers(msg)
+	if clientstate:GetClientSignonState() == E_SignonState.SIGNONSTATE_SPAWN then
+		maxticks = GetMaxServerTicks()
+		charged_ticks = 0
+		next_passive_recharge_tick = 0
+		last_pressed_tick = 0
+		warping, recharging = false, false
+		shooting = false
+		localplayer_alive = false
+		localplayer_velocity = 0
+	end
+end
+
+local function CanRecharge()
+	if charged_ticks >= maxticks then
+		return false
+	end
+
+	if shooting and settings.recharge.while_shooting then
+		return false
+	end
+
+	if not CanChokeTick() then
+		return false
+	end
+
+	if globals.TickCount() % (settings.recharge.delay + 1) ~= 0 then
+		return false
+	end
+
+	return true
+end
+
+--- Returns true if we passively recharged, and false if we should try the normal recharge
+---@param msg NetMessage
+local function HandlePassiveRecharge(msg)
+	if not settings.passive_recharge.enabled then
+		return false
+	end
+	if settings.passive_recharge.while_dead and not localplayer_alive then
+		charged_ticks = charged_ticks + 1
+		return true
+	end
+	if globals.TickCount() >= next_passive_recharge_tick then
+		charged_ticks = charged_ticks + 1
+		local time = settings.passive_recharge.randomized.enabled
+				and engine.RandomFloat(
+					settings.passive_recharge.randomized.min_time,
+					settings.passive_recharge.randomized.max_time
+				)
+			or settings.passive_recharge.time
+		next_passive_recharge_tick = globals.TickCount() + (time * 66.67)
+		return true
+	end
+	return false
+end
+
+--- Returns true for a successful recharge, or false if we shouldn't
+---@param msg NetMessage
+local function HandleRecharge(msg)
+	--- lmaobox is choking all the ticks available :(
+	if
+		not CanChokeTick()
+		or charged_ticks >= maxticks
+		or (shooting and not settings.recharge.while_shooting)
+		or (localplayer_velocity <= 0 and not settings.recharge.standing_still)
+		or (not settings.both.ignore_spectators and spectated)
+	then
+		return false
+	end
+
+	if settings.passive_recharge.while_dead and not localplayer_alive then
+		charged_ticks = charged_ticks + 1
+		return true
+	end
+
+	if HandlePassiveRecharge(msg) then
+		return true
+	end
+
+	if CanRecharge() and recharging then
+		charged_ticks = charged_ticks + 1
+		return true
+	end
+
+	return false
+end
+
+--- Returns true if the warp was successful
+---@param msg NetMessage
+local function HandleWarp(msg)
+	if
+		(shooting and not settings.warp.while_shooting)
+		or (not settings.warp.standing_still and localplayer_velocity <= 0)
+		or (spectated and not settings.both.ignore_spectators)
+	then
+		return true
+	end
+
+	if
+		localplayer_alive
+		and charged_ticks > 0
+		and CanShiftTick()
+		and globals.TickCount() % (settings.warp.delay + 1) == 0
+	then
+		local moveMsg <close> = clc_Move()
+		moveMsg:init()
+		msg:ReadFromBitBuffer(moveMsg.buffer)
+		charged_ticks = charged_ticks - 1
+		return true
+	end
+	return false
+end
+
+---@param msg NetMessage
+local function MsgManager(msg)
+	if msg:GetType() == SIGNONSTATE_TYPE then
+		HandleJoinServers(msg)
+		return true
+	end
+
+	if msg:GetType() == CLC_MOVE_TYPE then
+		if warping and not recharging then
+			HandleWarp(msg)
+			return true
+		else
+			if HandleRecharge(msg) then
+				return false
+			end
+		end
+	end
+
+	return true
+end
+
 ---@param usercmd UserCmd
-local function handle_input(usercmd)
-	localplayer = entities:GetLocalPlayer()
+local function HandleInputs(usercmd)
+	if engine:IsChatOpen() or engine:Con_IsVisible() or engine:IsGameUIVisible() then
+		return
+	end
+	warping = input.IsButtonDown(settings.warp.key)
+	recharging = input.IsButtonDown(settings.recharge.key)
+	maxticks = GetMaxServerTicks()
+
+	local localplayer = entities:GetLocalPlayer()
+	if not localplayer then
+		localplayer_alive = false
+		localplayer_velocity = 0
+		localplayer_isRed = false
+		shooting = false
+		return
+	end
+	localplayer_alive = localplayer:IsAlive()
+	localplayer_velocity = localplayer:EstimateAbsVelocity():Length()
+	localplayer_isRed = localplayer:GetTeamNumber() == 2
+
+	--- i wanted this to be one line lul
+	shooting = settings.both.check_aimbot_target
+			and (usercmd.buttons & IN_ATTACK ~= 0 or (aimbot.GetAimbotTarget() >= 1 or input.IsButtonDown(
+				gui.GetValue("aim key")
+			)))
+		or (usercmd.buttons & IN_ATTACK ~= 0)
+
+	charged_ticks = clamp(charged_ticks, 0, maxticks)
+
+	local state, tick = input.IsButtonPressed(settings.passive_recharge.toggle_key)
+	if state and last_pressed_tick < tick then
+		settings.passive_recharge.enabled = not settings.passive_recharge.enabled
+		last_pressed_tick = tick
+		ChatPrintf("toggled passive recharge")
+	end
+end
+
+local function HandleSpectators()
+	if settings.both.ignore_spectators then
+		callbacks.Unregister("CreateMove", "SmoothWarpCreateMove2")
+		return
+	end
+	local localplayer = entities:GetLocalPlayer()
 	if not localplayer then
 		return
 	end
 
-	warping = input.IsButtonDown(send_key)
+	local is_spectated = false
 
-	local state, tick = input.IsButtonPressed(toggle_passive_recharge_key)
-	if
-		state
-		and tick ~= last_pressed_tick
-		and not engine.IsChatOpen()
-		and not engine.IsGameUIVisible()
-		and not engine.Con_IsVisible()
-	then
-		passive_recharge = not passive_recharge
-		ChatPrintf("\x01Passive recharge is now: " .. tostring(passive_recharge and "on" or "off"))
-		last_pressed_tick = tick
-	end
-
-	state, tick = input.IsButtonPressed(increase_warp_delay)
-	if
-		state
-		and tick ~= last_pressed_tick
-		and not engine.IsChatOpen()
-		and not engine.IsGameUIVisible()
-		and not engine.Con_IsVisible()
-	then
-		delay_warp = delay_warp + 1
-		ChatPrintf("\x04Increased warp delay: " .. delay_warp)
-		last_pressed_tick = tick
-	end
-
-	state, tick = input.IsButtonPressed(decrease_warp_delay)
-	if
-		state
-		and tick ~= last_pressed_tick
-		and not engine.IsChatOpen()
-		and not engine.IsGameUIVisible()
-		and not engine.Con_IsVisible()
-	then
-		if delay_warp > 1 then
-			delay_warp = delay_warp - 1
-			ChatPrintf("\x04Decreased warp delay: " .. delay_warp)
-			last_pressed_tick = tick
+	for _, player in pairs(entities.FindByClass("CTFPlayer")) do
+		if not player:IsAlive() then
+			local target = player:GetPropEntity("m_hObserverTarget")
+			if not target then
+				goto continue
+			end
+			if target == localplayer then
+				is_spectated = true
+			end
+			::continue::
 		end
 	end
 
-	state, tick = input.IsButtonPressed(increase_recharge_delay)
-	if
-		state
-		and tick ~= last_pressed_tick
-		and not engine.IsChatOpen()
-		and not engine.IsGameUIVisible()
-		and not engine.Con_IsVisible()
-	then
-		delay_recharge = delay_recharge + 1
-		ChatPrintf("\x04Increased recharge delay: " .. delay_recharge)
-		last_pressed_tick = tick
-	end
-
-	state, tick = input.IsButtonPressed(decrease_recharge_delay)
-	if
-		state
-		and tick ~= last_pressed_tick
-		and not engine.IsChatOpen()
-		and not engine.IsGameUIVisible()
-		and not engine.Con_IsVisible()
-	then
-		if delay_recharge > 1 then
-			delay_recharge = delay_recharge - 1
-			ChatPrintf("\x04Decreased recharge delay: " .. delay_recharge)
-			last_pressed_tick = tick
-		end
-	end
-
-	--shooting = usercmd.buttons & IN_ATTACK ~= 0 -- only works with normal player input, aimbot doesnt change this!
-
-	if check_aimbot_target then
-		shooting = usercmd.buttons & IN_ATTACK ~= 0
-			or (aimbot.GetAimbotTarget() >= 1 and input.IsButtonDown(gui.GetValue("aim key"))) -- aimbot will mess with this
-	else
-		shooting = usercmd.buttons & IN_ATTACK ~= 0
-	end
-
-	maxticks = GetMaxPossibleTicks()
-	charged_ticks = clamp(charged_ticks, 0, maxticks)
-	on_ground = localplayer:GetPropInt("m_fFlags") & FL_ONGROUND ~= 0
+	spectated = is_spectated
 end
 
----@param msg NetMessage
-local function Warp(msg)
-	if msg:GetType() == 6 then -- SignonState
-		-- E_SignonState.SIGNONSTATE_SPAWN is before we fully join the server, i think its when we are sending or receiving info
-		if clientstate:GetClientSignonState() == E_SignonState.SIGNONSTATE_SPAWN then
-			charged_ticks = 0
-			next_recharge_tick = 0
-			recharging = false
-			warping = false
-			maxticks = GetMaxPossibleTicks()
-		end
-	end
+local function DrawTicks()
 	if
-		msg:GetType() == 9
-		and localplayer
-		and localplayer:IsAlive()
-		and not engine.IsChatOpen()
-		and not engine.Con_IsVisible()
-		and not engine.IsGameUIVisible()
+		engine:Con_IsVisible()
+		or engine:IsGameUIVisible()
+		or (engine:IsTakingScreenshot() and gui.GetValue("clean screenshots") == 1)
 	then
-		if warping and charged_ticks > 0 and not recharging and CanShiftTick() then
-			if
-				(shooting and not shoot_while_warp)
-				or (not warp_standing_still and localplayer:EstimateAbsVelocity():Length() <= 0)
-			then
-				return true
-			end
-
-			if globals.TickCount() % delay_warp == 0 then
-				local buffer = create_clc_move_buffer(2, 1)
-				msg:ReadFromBitBuffer(buffer)
-
-				charged_ticks = charged_ticks - 1
-				buffer:Delete()
-			end
-			return true
-		end
-
-		--- early return so we dont recharge
-		if (shooting and shoot_in_recharge) or (not on_ground and not recharge_in_air) or not CanChokeTick() then
-			return true
-		end
-
-		if
-			(
-				input.IsButtonDown(charge_key)
-				or (recharge_standing_still and localplayer:EstimateAbsVelocity():Length() == 0)
-			)
-			and charged_ticks < maxticks
-			and not warping
-		then
-			if globals.TickCount() % delay_recharge == 0 then
-				recharging = true
-				charged_ticks = charged_ticks + 1
-				recharging = false
-				return false
-			end
-			return true
-		end
-
-		if
-			passive_recharge
-			and not recharging
-			and charged_ticks < maxticks
-			and globals.TickCount() >= next_recharge_tick
-			and not warping
-		then
-			recharging = true
-			charged_ticks = charged_ticks + 1
-			local time = passive_recharge_randomized_time == true
-					and engine.RandomFloat(passive_recharge_randomized_min_time, passive_recharge_randomized_max_time)
-				or passive_recharge_time
-			next_recharge_tick = globals.TickCount() + (time * 66.67)
-			recharging = false
-			return false
-		end
-	end
-	return true
-end
-
-local function Draw()
-	if engine.Con_IsVisible() or engine.IsGameUIVisible() then
 		return
 	end
 
-	local used_ticks = charged_ticks
-	used_ticks = math.floor(math.max(0, math.min(used_ticks, maxticks)))
+	local formatted_text <const> = string.format(unformatted_text, charged_ticks, maxticks)
+	draw.SetFont(font)
+	local textW <const>, textH <const> = draw.GetTextSize(formatted_text)
+	local textX <const>, textY <const> = math.floor(centerX - (textW / 2)), math.floor(centerY + textH + 20)
 
-	-- Background
-	draw.Color(70, 70, 70, 150)
+	local cant_warp <const> = gui.GetValue("anti aim") == 1 or gui.GetValue("fake lag") == 1
+	local barWidth <const> = 80
+	local offset <const> = 2
+	local percent <const> = charged_ticks / maxticks
+	local barX, barY = centerX - math.floor(barWidth / 2), math.floor(centerY + textH + 20)
+
+	draw.Color(30, 30, 30, 252)
 	draw.FilledRect(
-		barX - backgroundOffset,
-		barY - backgroundOffset,
-		barX + barWidth + backgroundOffset,
-		barY + barHeight + backgroundOffset
+		math.floor(barX - offset),
+		math.floor(barY - offset),
+		math.floor(barX + barWidth + offset),
+		math.floor(barY + textH + offset)
 	)
 
-	local cant_warp = gui.GetValue("anti aim") == 1 or gui.GetValue("fake lag") == 1
+	local color = cant_warp and { 0, 0, 0, 255 } or localplayer_isRed and { 236, 57, 57, 255 } or { 12, 116, 191, 255 }
+	draw.Color(color[1], color[2], color[3], color[4])
+	--- WHERE IS THEFUCKING NUMBER IM GOING CRAZY
+	--- so... if you got an error about a number on FilledRect and came to see what it is, dont worry idk where the fk is the problem
+	--- just ignore it, as just like all our problems, it'll go away... eventually
+	pcall(
+		draw.FilledRect,
+		math.floor(barX or 0),
+		math.floor(barY or 0),
+		math.floor((barX or 0) + ((barWidth * (percent or 0)) or 0)),
+		math.floor((barY or 0) + (textH or 0))
+	)
 
-	local filledWidth = math.floor((barWidth * used_ticks) / maxticks)
-	if cant_warp then
-		draw.Color(255, 50, 50, 255)
-	elseif used_ticks == maxticks then
-		draw.Color(1, 221, 103, 255) -- green
-	else
-		draw.Color(97, 97, 76, 255) -- darker green
-	end
-	draw.FilledRect(math.floor(barX), math.floor(barY), math.floor(barX + filledWidth), math.floor(barY + barHeight))
-
-	local str1, str2 = "w: %i", "r: %i"
-	str1 = string.format(str1, delay_warp)
-	str2 = string.format(str2, delay_recharge)
-
-	draw.SetFont(font)
-	local delay_warp_X, delay_warp_Y = barX + backgroundOffset, barY + math.floor(barHeight / 2) - (12 / 2)
-
-	draw.Color(255, 255, 255, 255)
-	draw.Text(delay_warp_X, delay_warp_Y, str1)
-
-	draw.SetFont(font)
-	local delay_recharge_X, delay_recharge_Y =
-		barX + barWidth - backgroundOffset - math.floor(draw.GetTextSize(str2)),
-		barY + math.floor(barHeight / 2) - (12 / 2)
-
-	draw.Color(255, 255, 255, 255)
-	draw.Text(delay_recharge_X, delay_recharge_Y, str2)
-
-	local text = string.format("%i / %i", used_ticks, maxticks)
-
-	draw.SetFont(font)
-	local textW, textH = draw.GetTextSize(text)
-	local textX, textY =
-		barX + math.floor(barWidth / 2) - math.floor(textW / 2),
-		barY + math.floor(barHeight / 2) - math.floor(textH / 2)
 	draw.SetFont(font)
 	draw.Color(255, 255, 255, 255)
-	draw.Text(textX, textY, text)
+	draw.TextShadow(textX, textY, formatted_text)
 end
 
-callbacks.Register("SendNetMsg", Warp)
-callbacks.Register("Draw", Draw)
-callbacks.Register("CreateMove", handle_input)
+callbacks.Unregister("SendNetMsg", "SmoothWarpNetMsg")
+callbacks.Register("SendNetMsg", "SmoothWarpNetMsg", MsgManager)
+
+callbacks.Unregister("CreateMove", "SmoothWarpCreateMove")
+callbacks.Register("CreateMove", "SmoothWarpCreateMove", HandleInputs)
+
+callbacks.Unregister("Draw", "SmoothWarpDraw")
+callbacks.Register("Draw", "SmoothWarpDraw", DrawTicks)
+
+callbacks.Unregister("CreateMove", "SmoothWarpCreateMove2")
+callbacks.Register("CreateMove", "SmoothWarpCreateMove2", HandleSpectators)
+
+callbacks.Unregister("Unload", "SmoothWarpUnload")
+--- make sure this is unique enough to not register on top of another unload callback
+callbacks.Register("Unload", "SmoothWarpUnload", function()
+	charged_ticks = nil
+	next_passive_recharge_tick = nil
+	maxticks = nil
+	warping, recharging = nil, nil
+	shooting = nil
+	localplayer_alive = nil
+	localplayer_velocity = nil
+end)
