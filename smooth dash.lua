@@ -84,7 +84,7 @@ end
 if not clientstate:GetNetChannel() then
 	printc(255, 150, 150, 255, "Disabled double tap and dash", "You can recharge with anti aim, it will mostly work")
 else
-	ChatPrintf("Disabled double tap and dash", "You can recharge with anti aim", "Using ")
+	ChatPrintf("Disabled double tap and dash", "You can recharge with anti aim")
 end
 
 local function clamp(value, min, max)
