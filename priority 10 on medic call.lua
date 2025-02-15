@@ -68,7 +68,6 @@ local function CreateMove(usercmd)
 			and (globals.TickCount() - value.tick_call1) >= (forgive_seconds * 67)
 		then
 			players[userid] = nil
-			print("1")
 			return
 		end
 
@@ -78,7 +77,6 @@ local function CreateMove(usercmd)
 			and (globals.TickCount() - value.tick_call2) >= (forgive_seconds * 67)
 		then
 			players[userid] = nil
-			print("2")
 			return
 		end
 	end
