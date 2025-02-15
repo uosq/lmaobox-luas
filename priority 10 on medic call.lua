@@ -27,19 +27,16 @@ local function FireGameEvent(game_event)
 			--playerlist.SetPriority(userid, priority)
 			if not players[userid] then
 				players[userid] = { tick_call1 = globals.TickCount() }
-				print("tick 1")
 				return
 			end
 
 			if not players[userid]["tick_call2"] then
 				players[userid]["tick_call2"] = globals.TickCount()
-				print("tick 2")
 				return
 			end
 
 			if not players[userid]["tick_call3"] then
 				players[userid]["tick_call3"] = globals.TickCount()
-				print("tick 3")
 			end
 
 			local target = players[userid]
