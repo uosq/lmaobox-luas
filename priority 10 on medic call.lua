@@ -1,7 +1,7 @@
 local event <const> = "player_calledformedic"
 local priority <const> = 10
 local seconds <const> = 5 --- if in 5 seconds the player calls 3 times, we add priority 10 to the fucker so we know we have to kill them later on another match
-local forgive_seconds <const> = 10 --- after how much time should we forgive the player? put 0 if never (recommended to be 0, fuck them later)
+local forgive_seconds <const> = 0 --- after how much time should we forgive the player? put 0 if never (recommended to be 0, fuck them later)
 
 local players = {
 	--[[
