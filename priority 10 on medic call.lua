@@ -1,7 +1,7 @@
 local event <const> = "player_calledformedic"
 local priority <const> = 10
 local seconds <const> = 5 --- if in 5 seconds the player calls 3 times, we add priority 10 to the fucker so we know we have to kill them later on another match
-local forgive_seconds <const> = 0 --- after how much time should we forgive the player? put 0 if never (recommended to be 0, fuck them later)
+local forgive_seconds <const> = 10 --- after how much time should we forgive the player? put 0 if never (recommended to be 0, fuck them later)
 
 local players = {
 	--[[
@@ -60,6 +60,26 @@ local function CreateMove(usercmd)
 		if value.tick_call3 and (globals.TickCount() - value.tick_call3) >= (forgive_seconds * 67) then
 			playerlist.SetPriority(userid, 0)
 			players[userid] = nil
+			return
+		end
+		if
+			not value.tick_call3
+			and value.tick_call1
+			and (globals.TickCount() - value.tick_call1) >= (forgive_seconds * 67)
+		then
+			players[userid] = nil
+			print("1")
+			return
+		end
+
+		if
+			not value.tick_call3
+			and value.tick_call2
+			and (globals.TickCount() - value.tick_call2) >= (forgive_seconds * 67)
+		then
+			players[userid] = nil
+			print("2")
+			return
 		end
 	end
 end
