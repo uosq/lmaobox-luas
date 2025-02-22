@@ -19,6 +19,8 @@ local AntiAim = true
 local Backtrack = true
 
 local EnemyOnly = true
+local DrawOriginalPlayerMaterial = true
+local DrawOriginalViewModelArmMaterial = true
 ---
 
 local materials = materials
@@ -30,19 +32,25 @@ local gui = gui
 local playerlist = playerlist
 local models = models
 
-local flat = materials.Create("flat_chams", [[
+local flat = materials.Create(
+	"flat_chams",
+	[[
 UnlitGeneric
 {
 	$basetexture "vgui/white_additive"
 }
-]])
+]]
+)
 
-local textured = materials.Create("textured_chams", [[
+local textured = materials.Create(
+	"textured_chams",
+	[[
 VertexLitGeneric
 {
 	$basetexture "vgui/white_additive"
 }
-]])
+]]
+)
 
 ---@param r integer [0, 255]
 ---@param g integer [0, 255]
@@ -55,7 +63,7 @@ end
 --- E_TeamNumber is inverted
 local TEAMS = {
 	RED = 2,
-	BLU = 3
+	BLU = 3,
 }
 
 local COLORS = {
@@ -96,11 +104,11 @@ local COLORS = {
 }
 
 local trackedEntities = {
-	CTFPlayer = Players,           --- Players
-	CObjectSentrygun = Sentries,   --- Sentries
+	CTFPlayer = Players, --- Players
+	CObjectSentrygun = Sentries, --- Sentries
 	CObjectDispenser = Dispensers, --- Dispensers
 	CObjectTeleporter = Teleporters, --- Teleporters
-	CCurrencyPack = Money,         --- MVM Money
+	CCurrencyPack = Money, --- MVM Money
 }
 
 local depth_mode = {
@@ -132,25 +140,29 @@ local number_players = 0
 local BUILDING_COLORS = {
 	CObjectSentrygun = {
 		[TEAMS.RED] = COLORS.SENTRY_RED,
-		[TEAMS.BLU] = COLORS.SENTRY_BLU
+		[TEAMS.BLU] = COLORS.SENTRY_BLU,
 	},
 	CObjectDispenser = {
 		[TEAMS.RED] = COLORS.DISPENSER_RED,
-		[TEAMS.BLU] = COLORS.DISPENSER_BLU
+		[TEAMS.BLU] = COLORS.DISPENSER_BLU,
 	},
 	CObjectTeleporter = {
 		[TEAMS.RED] = COLORS.TELEPORTER_RED,
-		[TEAMS.BLU] = COLORS.TELEPORTER_BLU
+		[TEAMS.BLU] = COLORS.TELEPORTER_BLU,
 	},
 	CCurrencyPack = COLORS.MVM_MONEY,
-	CTFViewModel = COLORS.VIEWMODEL_ARM
+	CTFViewModel = COLORS.VIEWMODEL_ARM,
 }
 
 ---@param entity Entity
 local function getEntityColor(entity)
 	local localplayer = entities:GetLocalPlayer()
-	if localplayer and localplayer == entity then return COLORS.LOCALPLAYER end
-	if entity == currentTarget then return COLORS.TARGET end
+	if localplayer and localplayer == entity then
+		return COLORS.LOCALPLAYER
+	end
+	if entity == currentTarget then
+		return COLORS.TARGET
+	end
 
 	local team_number = entity:GetTeamNumber()
 	local class = entity:GetClass()
@@ -166,16 +178,19 @@ local function getEntityColor(entity)
 	end
 
 	local priority = playerlist.GetPriority(entity)
-	if priority == -1 then return COLORS.FRIEND end
-	if priority > 0 then return COLORS.PRIORITY end
+	if priority == -1 then
+		return COLORS.FRIEND
+	end
+	if priority > 0 then
+		return COLORS.PRIORITY
+	end
 
 	if entity:IsWeapon() then
 		if entity:IsMeleeWeapon() then
 			return COLORS.WEAPON_MELEE
 		end
-		return entity:GetLoadoutSlot() == E_LoadoutSlot.LOADOUT_POSITION_PRIMARY
-			 and COLORS.WEAPON_PRIMARY
-			 or COLORS.WEAPON_SECONDARY
+		return entity:GetLoadoutSlot() == E_LoadoutSlot.LOADOUT_POSITION_PRIMARY and COLORS.WEAPON_PRIMARY
+			or COLORS.WEAPON_SECONDARY
 	end
 
 	-- Default team color
@@ -192,7 +207,15 @@ local function update_entities()
 	-- Process players and their children
 	for _, player in pairs(FindByClass("CTFPlayer")) do
 		---@diagnostic disable-next-line: need-check-nil
-		if player and player ~= local_player and player:IsAlive() and not player:IsDormant() and player:ShouldDraw() and not player:InCond(E_TFCOND.TFCond_Cloaked) and (not EnemyOnly or player:GetTeamNumber() ~= local_player:GetTeamNumber()) then
+		if
+			player
+			and player ~= local_player
+			and player:IsAlive()
+			and not player:IsDormant()
+			and player:ShouldDraw()
+			and not player:InCond(E_TFCOND.TFCond_Cloaked)
+			and (not EnemyOnly or player:GetTeamNumber() ~= local_player:GetTeamNumber())
+		then
 			num = num + 1
 			local index = player:GetIndex()
 			entitycolors[index] = getEntityColor(player)
@@ -212,9 +235,13 @@ local function update_entities()
 	for _, pack in pairs(FindByClass("CBaseAnimating")) do
 		if pack and not pack:IsDormant() and pack:ShouldDraw() then
 			local model = pack:GetModel()
-			if not model then return end
+			if not model then
+				return
+			end
 			local modelName = string.lower(models.GetModelName(model))
-			if not modelName then return end
+			if not modelName then
+				return
+			end
 			if AmmoPack and string.find(modelName, "ammo") then
 				entitycolors[pack:GetIndex()] = COLORS.AMMOPACK
 			elseif HealthPack and string.find(modelName, "health") or string.find(modelName, "medkit") then
@@ -245,7 +272,13 @@ local function update_entities()
 	for className in pairs(trackedEntities) do
 		if className ~= "CTFPlayer" then
 			for _, building in pairs(FindByClass(className)) do
-				if building and not building:IsDormant() and building:ShouldDraw() and building:GetHealth() > 0 and (not EnemyOnly or building:GetTeamNumber() ~= local_player:GetTeamNumber()) then
+				if
+					building
+					and not building:IsDormant()
+					and building:ShouldDraw()
+					and building:GetHealth() > 0
+					and (not EnemyOnly or building:GetTeamNumber() ~= local_player:GetTeamNumber())
+				then
 					entitycolors[building:GetIndex()] = getEntityColor(building)
 				end
 			end
@@ -269,7 +302,7 @@ local function update_entities()
 	collectgarbage("restart")
 end
 
-local fast_interval = 5   --- every 5 ticks
+local fast_interval = 5 --- every 5 ticks
 local slow_interval = 133 --- every ~2 seconds
 
 local update_interval = 0
@@ -284,11 +317,11 @@ callbacks.Register("CreateMove", function(cmd)
 		last_button_press_tick = tick
 		toggle = not toggle
 	end
-	if not toggle then return end
+	if not toggle then
+		return
+	end
 	if cmd.tick_count - last_tick >= update_interval then
-		selectedMaterial = string.lower(gui.GetValue("draw style")) == "flat"
-			 and flat
-			 or textured
+		selectedMaterial = string.lower(gui.GetValue("draw style")) == "flat" and flat or textured
 		currentMode = depth_mode[gui.GetValue("draw mode")]
 		--- if we are playing on a high player count server, increase the update interval to not cause too much lag
 		--- the player would definitely notice, but its better than having 10 fps
@@ -319,11 +352,28 @@ end
 
 ---@param param DrawModelContext
 local function handleDrawModel(param)
-	if not toggle then return end
+	if not toggle then
+		return
+	end
 	local ctx = param
 
 	local bDrawingBacktrack = ctx:IsDrawingBackTrack()
 	local bDrawingAntiAim = ctx:IsDrawingAntiAim()
+
+	if bDrawingAntiAim or bDrawingBacktrack then
+		if bDrawingBacktrack and Backtrack then
+			local color = COLORS.BACKTRACK
+			setctx(ctx, color)
+			change_depth(ctx, currentMode)
+		elseif bDrawingAntiAim and AntiAim then
+			local color = COLORS.ANTIAIM
+			setctx(ctx, color)
+			change_depth(ctx, currentMode)
+		end
+		return
+	end
+
+	--[[
 	if (bDrawingBacktrack and Backtrack) then
 		local color = COLORS.BACKTRACK
 		setctx(ctx, color)
@@ -338,16 +388,28 @@ local function handleDrawModel(param)
 		setctx(ctx, color)
 		change_depth(ctx, currentMode)
 		return
-	end
+	end]]
 
 	local entity = ctx:GetEntity()
-	if not entity or entity:IsDormant() then return end
+	if not entity or entity:IsDormant() then
+		return
+	end
 	local index = entity:GetIndex()
 
-	if not entity_colors[index] then return end
+	if not entity_colors[index] then
+		return
+	end
 
 	local color = entity_colors[index]
-	if not color then return end
+	if not color then
+		return
+	end
+
+	if DrawOriginalPlayerMaterial or (entity:GetClass() == "CTFViewModel" and DrawOriginalViewModelArmMaterial) then
+		change_depth(ctx, 0.3)
+		ctx:Execute()
+	end
+
 	setctx(ctx, color)
 	change_depth(ctx, currentMode)
 

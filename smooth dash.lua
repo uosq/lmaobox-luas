@@ -42,6 +42,12 @@ local settings = {
 			max_time = 5,
 		},
 	},
+
+	desync = { --- desync your charged ticks and recharge
+		--- thought this was funny at 4 am so yeah idk what im doing
+		enabled = true,
+		key = E_ButtonCode.KEY_F,
+	},
 }
 --- end of settings
 --- dont change stuff below this line pls
@@ -63,6 +69,8 @@ local centerX <const>, centerY <const> = math.floor(screenX / 2), math.floor(scr
 local unformatted_text <const> = "%i / %i"
 local font <const> = draw.CreateFont("TF2 BUILD", 16, 1000)
 
+local warning_string = "Disabled double tap and dash, you can recharge with antiaim"
+
 local NEW_COMMANDS_SIZE <const> = 4
 local BACKUP_COMMANDS_SIZE <const> = 3
 
@@ -82,9 +90,9 @@ local function ChatPrintf(...)
 end
 
 if not clientstate:GetNetChannel() then
-	printc(255, 150, 150, 255, "Disabled double tap and dash", "You can recharge with anti aim, it will mostly work")
+	printc(255, 150, 150, 255, warning_string)
 else
-	ChatPrintf("Disabled double tap and dash", "You can recharge with anti aim")
+	ChatPrintf(warning_string)
 end
 
 local function clamp(value, min, max)
@@ -249,21 +257,17 @@ end
 local function MsgManager(msg)
 	if msg:GetType() == SIGNONSTATE_TYPE then
 		HandleJoinServers(msg)
-		return true
 	end
 
 	if msg:GetType() == CLC_MOVE_TYPE then
 		if warping and not recharging then
 			HandleWarp(msg)
-			return true
 		else
 			if HandleRecharge(msg) then
 				return false
 			end
 		end
 	end
-
-	return true
 end
 
 ---@param usercmd UserCmd
@@ -289,7 +293,7 @@ local function HandleInputs(usercmd)
 
 	--- i wanted this to be one line lul
 	shooting = settings.both.check_aimbot_target
-			and (usercmd.buttons & IN_ATTACK ~= 0 or (aimbot.GetAimbotTarget() >= 1 or input.IsButtonDown(
+			and (usercmd.buttons & IN_ATTACK ~= 0 or (aimbot.GetAimbotTarget() >= 1 and input.IsButtonDown(
 				gui.GetValue("aim key")
 			)))
 		or (usercmd.buttons & IN_ATTACK ~= 0)
@@ -301,6 +305,12 @@ local function HandleInputs(usercmd)
 		settings.passive_recharge.enabled = not settings.passive_recharge.enabled
 		last_pressed_tick = tick
 		ChatPrintf("toggled passive recharge")
+	end
+
+	if settings.desync.enabled and input.IsButtonDown(settings.desync.key) then
+		recharging = true
+		usercmd.sendpacket = false
+		charged_ticks = 0
 	end
 end
 
