@@ -355,7 +355,9 @@ local function DrawModel(context)
 
 	--- resetting stuff
 	context:DepthRange(0, 1)
-	context:SetColorModulation(get_color(255, 255, 255, 255))
+	-- why no leak? wtf
+	--context:SetColorModulation(get_color(255, 255, 255, 255))
+	--context:SetAlphaModulation(1)
 	DISABLE_DEPTHOVERRIDE()
 end
 
