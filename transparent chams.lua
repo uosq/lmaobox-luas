@@ -63,6 +63,7 @@ local BACKTRACK <const> = true
 local RAGDOLLS <const> = true
 
 local DRAW_ON_ENEMY_ONLY <const> = false
+local DRAW_ON_VISIBLE_ONLY <const> = false --- WARNING: they look less saturated when on visible only, idk why
 local DRAW_ORIGINAL_MATERIAL_ON_PLAYER <const> = false
 local DRAW_ORIGINAL_VIEWMODEL_ARM_MATERIAL <const> = false
 local DRAW_ORIGINAL_MATERIAL_ON_EVERYTHING_ELSE <const> = false
@@ -345,7 +346,11 @@ local function DrawModel(context)
 	context:SetAlphaModulation(a)
 	context:ForcedMaterialOverride(material)
 	context:SetColorModulation(r, g, b)
-	context:DepthRange(0, (class == VIEWMODEL_ARM_CLASS and 0.1 or 0.2))
+
+	if (not DRAW_ON_VISIBLE_ONLY) then
+		context:DepthRange(0, (class == VIEWMODEL_ARM_CLASS and 0.1 or 0.2))
+	end
+
 	context:Execute()
 
 	--- resetting stuff
