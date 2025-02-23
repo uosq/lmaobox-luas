@@ -269,15 +269,13 @@ end
 
 ---@param usercmd UserCmd
 local function CreateMove(usercmd)
-	if (not enabled) then return end
-
 	local state, tick = input.IsButtonPressed(TOGGLE_CHAMS_KEY)
 	if (state and tick > last_button_press_tick) then
 		enabled = not enabled
 		last_button_press_tick = tick
 	end
 
-	if ((usercmd.tick_count % 5) == 0) then
+	if (enabled and (usercmd.tick_count % 5) == 0) then
 		update_entities()
 	end
 end
