@@ -228,23 +228,6 @@ local function update_entities()
 					entity_list_color_back[i] = get_entity_color(entity)
 					goto continue
 				end
-
-				--- medkit, ammopack
-				if ((AMMOPACK or HEALTHPACK) and class == "CBaseAnimating") then
-					local model = entity:GetModel()
-					if (not model) then goto continue end
-
-					local model_name = string.lower(models.GetModelName(model))
-					if (not model_name) then goto continue end
-
-					if (AMMOPACK and string.find(model_name, "ammo")) then
-						entity_list_color_back[i] = COLORS.AMMOPACK
-					elseif (HEALTHPACK and (string.find(model_name, "health") or string.find(model_name, "medkit"))) then
-						entity_list_color_back[i] = COLORS.HEALTHKIT
-					end
-
-					goto continue
-				end
 			end
 
 			if (RAGDOLLS and (class == "CTFRagdoll" or class == "CRagdollProp" or class == "CRagdollPropAttached")) then
