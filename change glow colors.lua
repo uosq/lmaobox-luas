@@ -1,7 +1,6 @@
 --- made by navet
 
---- you can add a 4th value if you want, to change the transparency
---- but i dont recommend
+--- you can add a 4th value if you want to change the transparency
 local colors <const> = {
    RED = {255, 150, 150}, --- RED players
    BLU = {150, 150, 255}, --- BLU players
@@ -108,7 +107,7 @@ local function DrawModel(dm)
       local color <const> = getentitycolor(glow_entity)
       if not color then return end
 
-      local r, g, b, a = table.unpack(color)
+      local r <const>, g <const>, b <const>, a <const> = table.unpack(color)
       dm:SetColorModulation(r / 255, g / 255, b / 255)
       if a then
          dm:SetAlphaModulation(a / 255)
