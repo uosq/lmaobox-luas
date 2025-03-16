@@ -248,7 +248,7 @@ end
 local function DrawModel(dme)
    if not prop_color then return end
    local entity = dme:GetEntity()
-   if entity and not entity:IsPlayer() and not entity:IsDormant()
+   if entity and not entity:IsPlayer() and not entity:IsWeapon() and not entity:IsDormant()
    and (entity:GetPropEntity("m_hOwner") and entity:GetPropEntity("m_hOwner"):GetIndex() ~= client:GetLocalPlayerIndex()) then
       dme:SetColorModulation(table.unpack(prop_color))
       dme:ForcedMaterialOverride(mat)
