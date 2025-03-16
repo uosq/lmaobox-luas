@@ -8,6 +8,16 @@ local alib_source = http.Get("https://github.com/uosq/lbox-alib/releases/downloa
 local alib = load(alib_source)()
 alib.settings.font = draw.CreateFont("TF2 BUILD", 16, 1000)
 
+local vmt =
+[[
+VertexLitGeneric
+{
+   $basetexture "vgui/white_additive"
+}
+]]
+
+local mat = materials.Create("world mod", vmt)
+
 --- you can change the transparency by changing the 4th value
 --- but honestly its better to just stick with 255
 --local color <const> = {40, 40, 40, 255}
@@ -150,6 +160,9 @@ local function hsvToRgb(h, s, v, a)
    return r * 255, g * 255, b * 255, a * 255
 end
 
+---@type number[]
+local prop_color = nil
+
 function button:refresh()
    local state, tick = input.IsButtonPressed(E_ButtonCode.MOUSE_LEFT)
    local mouse_inside = alib.math.isMouseInside(window, self)
@@ -159,6 +172,8 @@ function button:refresh()
       local r, g, b, a = hsvToRgb(h.value/100, s.value/100, v.value/100, 1)
       reset_color()
       apply_color(r/255, g/255, b/255, a/255)
+
+      prop_color = {r/255, g/255, b/255}
       last_click_tick = tick
    end
 end
@@ -229,9 +244,33 @@ local function Draw()
    end
 end
 
+---@param dme DrawModelContext
+local function DrawModel(dme)
+   if not prop_color then return end
+   local entity = dme:GetEntity()
+   if entity and not entity:IsPlayer() and not entity:IsDormant()
+   and (entity:GetPropEntity("m_hOwner") and entity:GetPropEntity("m_hOwner"):GetIndex() ~= client:GetLocalPlayerIndex()) then
+      dme:SetColorModulation(table.unpack(prop_color))
+      dme:ForcedMaterialOverride(mat)
+   end
+end
+
+---@param info StaticPropRenderInfo
+local function DrawStaticProps(info)
+   if prop_color then
+      mat:SetShaderParam("$color2", Vector3(table.unpack(prop_color)))
+      info:ForcedMaterialOverride(mat)
+   end
+end
+
 callbacks.Register("Draw", "world modulation stuff", Draw)
+callbacks.Register("DrawStaticProps", "world modulation dsp", DrawStaticProps)
+callbacks.Register("DrawModel", "world modulation dme", DrawModel)
+
 callbacks.Register("Unload", function ()
    callbacks.Unregister("Draw", "world modulation stuff")
+   callbacks.Unregister("DrawStaticProps", "world modulation dsp")
+   callbacks.Unregister("DrawModel", "world modulation dme")
 
    reset_color()
    alib.unload()
