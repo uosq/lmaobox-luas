@@ -9,6 +9,9 @@
 --- but honestly its better to just stick with 255
 --local color <const> = {40, 40, 40, 255}
 local apply_to_sky <const> = false --- applies the color to the sky too
+--- i completely forgot about this option
+--- lol
+--- well too late now :p
 
 --- this is pretty cool
 local function apply_color(r, g, b, a, sky)
