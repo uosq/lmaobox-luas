@@ -3,7 +3,7 @@
 --- you can add a 4th value if you want to change the transparency
 local colors <const> = {
    RED = {255, 150, 150}, --- RED players
-   BLU = {150, 150, 255}, --- BLU players
+   BLU = {150, 255, 255}, --- BLU players
    LOCALPLAYER = {0, 255, 221}, --- you
    TARGET = {128, 255, 0}, --- aimbot target
    PRIORITY = {255, 255, 0}, --- players with priority higher than 0
@@ -19,7 +19,7 @@ local colors <const> = {
    BLU_TELEPORTER = {0, 255, 255},
 
    RED_HAT = {255, 0, 0},
-   BLU_HAT = {0, 255, 255},
+   BLU_HAT = {0, 150, 255},
 
    PRIMARY_WEAPON = {163, 64, 90},
    SECONDARY_WEAPON = {74, 79, 125},
@@ -44,53 +44,50 @@ local function getentitycolor(entity)
       end
    end
 
-   do --- priority
-      if playerlist.GetPriority(entity) > 0 then
-         return colors.PRIORITY
-      elseif playerlist.GetPriority(entity) < 0 then
-         return colors.FRIEND
-      end
-   end
-
-   do --- buildings
-      local class = entity:GetClass()
-      if not class then return nil end
-
-      local team = entity:GetTeamNumber()
-      if not team then return nil end
-
-      local is_sentry, is_teleporter, is_dispenser
-      is_sentry = class == "CObjectSentrygun"
-      is_teleporter = class == "CObjectTeleporter"
-      is_dispenser = class == "CObjectDispenser"
-
-      if is_sentry then
-         return colors[team == 2 and "RED_SENTRY" or "BLU_SENTRY"]
-      elseif is_teleporter then
-         return colors[team == 2 and "RED_TELEPORTER" or "BLU_TELEPORTER"]
-      elseif is_dispenser then
-         return colors[team == 2 and "RED_DISPENSER" or "BLU_DISPENSER"]
-      end
-   end
-
-   do --- hats
-      local class = entity:GetClass()
-      if not class then return nil end
-
-      local team = entity:GetTeamNumber()
-      if not team then return nil end
-
-      if string.find(class, "Wearable") then
-         return colors[team == 2 and "RED_HAT" or "BLU_HAT"]
-      end
-   end
-
    do --- player weapons
       if entity:IsWeapon() then
          if entity:IsMeleeWeapon() then
             return colors.MELEE_WEAPON
          else
             return entity:GetLoadoutSlot() == E_LoadoutSlot.LOADOUT_POSITION_PRIMARY and colors.PRIMARY_WEAPON or colors.SECONDARY_WEAPON
+         end
+      end
+   end
+
+   do --- priority
+      local priority = playerlist.GetPriority(entity)
+      if priority > 0 then
+         return colors.PRIORITY
+      elseif priority < 0 then
+         return colors.FRIEND
+      end
+   end
+
+   do --- putting them in a do end because of class and team variables
+      local class = entity:GetClass()
+      if not class then return nil end
+
+      local team = entity:GetTeamNumber()
+      if not team then return nil end
+
+      do --- buildings
+         local is_sentry, is_teleporter, is_dispenser
+         is_sentry = class == "CObjectSentrygun"
+         is_teleporter = class == "CObjectTeleporter"
+         is_dispenser = class == "CObjectDispenser"
+
+         if is_sentry then
+            return colors[team == 2 and "RED_SENTRY" or "BLU_SENTRY"]
+         elseif is_teleporter then
+            return colors[team == 2 and "RED_TELEPORTER" or "BLU_TELEPORTER"]
+         elseif is_dispenser then
+            return colors[team == 2 and "RED_DISPENSER" or "BLU_DISPENSER"]
+         end
+      end
+
+      do --- hats
+         if string.find(class, "Wearable") then
+            return colors[team == 2 and "RED_HAT" or "BLU_HAT"]
          end
       end
    end
