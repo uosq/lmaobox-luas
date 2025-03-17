@@ -1,22 +1,14 @@
+---@diagnostic disable: need-check-nil, assign-type-mismatch
 --- made by navet
 
 --- first time loading this can make your game
 --- freeze for a second or two
 
-local alib_source = http.Get("https://github.com/uosq/lbox-alib/releases/download/0.44.1/source.lua")
+--local alib_source = http.Get("https://github.com/uosq/lbox-alib/releases/download/0.44.1/source.lua")
 ---@module "source"
-local alib = load(alib_source)()
+--local alib = load(alib_source)()
+local alib = require("source")
 alib.settings.font = draw.CreateFont("TF2 BUILD", 16, 1000)
-
-local vmt =
-[[
-VertexLitGeneric
-{
-   $basetexture "vgui/white_additive"
-}
-]]
-
-local mat = materials.Create("world mod", vmt)
 
 --- you can change the transparency by changing the 4th value
 --- but honestly its better to just stick with 255
@@ -31,9 +23,13 @@ local function apply_color(r, g, b, a, sky)
    a = a or 1
    materials.Enumerate(function (material)
       local group = material:GetTextureGroupName()
-      if (sky and string.find(group, "SkyBox") or string.find(group, "World")) then
+      local name = material:GetName()
+      if (sky and group == "SkyBox textures") or group == "World textures"
+      or string.find(name, "concrete", 1, true) or string.find(name, "wood", 1, true) or string.find(name, "nature", 1, true)
+      or string.find(name, "wall", 1, true) then
          material:ColorModulate(r, g, b)
          material:AlphaModulate(a)
+         material:SetShaderParam("$color2", Vector3(r, g, b))
       end
    end)
 end
@@ -157,11 +153,8 @@ local function hsvToRgb(h, s, v, a)
    elseif i == 5 then r, g, b = v, p, q
    end
 
-   return r * 255, g * 255, b * 255, a * 255
+   return r, g, b, a
 end
-
----@type number[]
-local prop_color = nil
 
 function button:refresh()
    local state, tick = input.IsButtonPressed(E_ButtonCode.MOUSE_LEFT)
@@ -171,9 +164,8 @@ function button:refresh()
    if mouse_inside and state and tick > last_click_tick then
       local r, g, b, a = hsvToRgb(h.value/100, s.value/100, v.value/100, 1)
       reset_color()
-      apply_color(r/255, g/255, b/255, a/255)
+      apply_color(r, g, b, a)
 
-      prop_color = {r/255, g/255, b/255}
       last_click_tick = tick
    end
 end
@@ -235,6 +227,7 @@ local function Draw()
       x = math.floor(applybutton.x + window.x + (applybutton.width*0.5) - (width*0.5))
       y = applybutton.y + applybutton.height + window.y + 10
       local r, g, b, a = hsvToRgb(h.value/100, s.value/100, v.value/100, 1)
+      r, g, b, a  = math.floor(r * 255), math.floor(g * 255), math.floor(b * 255), math.floor(a * 255)
 
       draw.Color(255, 255, 255, 255)
       draw.FilledRect(x - 1, y - 1, x + width + 1, y + height + 1)
@@ -244,33 +237,9 @@ local function Draw()
    end
 end
 
----@param dme DrawModelContext
-local function DrawModel(dme)
-   if not prop_color then return end
-   local entity = dme:GetEntity()
-   if entity and not entity:IsPlayer() and not entity:IsWeapon() and not entity:IsDormant()
-   and (entity:GetPropEntity("m_hOwner") and entity:GetPropEntity("m_hOwner"):GetIndex() ~= client:GetLocalPlayerIndex()) then
-      dme:SetColorModulation(table.unpack(prop_color))
-      dme:ForcedMaterialOverride(mat)
-   end
-end
-
----@param info StaticPropRenderInfo
-local function DrawStaticProps(info)
-   if prop_color then
-      mat:SetShaderParam("$color2", Vector3(table.unpack(prop_color)))
-      info:ForcedMaterialOverride(mat)
-   end
-end
-
 callbacks.Register("Draw", "world modulation stuff", Draw)
-callbacks.Register("DrawStaticProps", "world modulation dsp", DrawStaticProps)
-callbacks.Register("DrawModel", "world modulation dme", DrawModel)
-
 callbacks.Register("Unload", function ()
    callbacks.Unregister("Draw", "world modulation stuff")
-   callbacks.Unregister("DrawStaticProps", "world modulation dsp")
-   callbacks.Unregister("DrawModel", "world modulation dme")
 
    reset_color()
    alib.unload()
