@@ -4,10 +4,9 @@
 --- first time loading this can make your game
 --- freeze for a second or two
 
---local alib_source = http.Get("https://github.com/uosq/lbox-alib/releases/download/0.44.1/source.lua")
+local alib_source = http.Get("https://github.com/uosq/lbox-alib/releases/download/0.44.1/source.lua")
 ---@module "source"
---local alib = load(alib_source)()
-local alib = require("source")
+local alib = load(alib_source)()
 alib.settings.font = draw.CreateFont("TF2 BUILD", 16, 1000)
 
 --- you can change the transparency by changing the 4th value
@@ -165,7 +164,6 @@ function button:refresh()
       local r, g, b, a = hsvToRgb(h.value/100, s.value/100, v.value/100, 1)
       reset_color()
       apply_color(r, g, b, a)
-
       last_click_tick = tick
    end
 end
