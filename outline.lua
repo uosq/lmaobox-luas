@@ -12,7 +12,7 @@ local viewmodel = true
 local hide_viewmodel = true
 
 local colors <const> = {
-   RED = {255, 150, 150}, --- RED players
+   RED = {255, 0, 0}, --- RED players
    BLU = {150, 255, 255}, --- BLU players
    LOCALPLAYER = { 156, 66, 245}, --- you
    TARGET = {128, 255, 0}, --- aimbot target
