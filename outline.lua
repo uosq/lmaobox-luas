@@ -10,6 +10,7 @@ local visible_only = false
 local backtrack_visible_only = true
 local viewmodel = true
 local hide_viewmodel = true
+local fill = true --- fills the inside of the outline to give it a bit more contrast (visible_only doesnt work with it yet)
 
 local colors <const> = {
    RED = {255, 0, 0}, --- RED players
@@ -245,9 +246,11 @@ end
 ---@param dme DrawModelContext
 callbacks.Register("DrawModel", function(dme)
    local entity = dme:GetEntity()
+   local modelname = dme:GetModelName()
 
    --- viewmodel weapon
-   if entity == nil and string.find(dme:GetModelName(), "models/weapons/c_models") and viewmodel then
+   if entity == nil and (string.find(modelname, "models/weapons/c_models")
+   or string.find(modelname, "models/workshop/weapons/c_models")) and viewmodel then
       local selectedcolor = colors.VIEWMODEL
       OutlineViewModel(dme, selectedcolor)
       return
@@ -269,7 +272,15 @@ callbacks.Register("DrawModel", function(dme)
 
    --- player model
    PlayerStencil()
-   dme:SetAlphaModulation(0)
+   if fill then
+      dme:ForcedMaterialOverride(flat)
+      dme:SetColorModulation(selectedcolor[1]/255, selectedcolor[2]/255, selectedcolor[3]/255)
+      dme:SetAlphaModulation(0.1)
+      dme:DepthRange(0, 0.2)
+   else
+      dme:ForcedMaterialOverride(nil)
+      dme:SetAlphaModulation(0)
+   end
    dme:Execute()
 
    --- outline
@@ -277,7 +288,7 @@ callbacks.Register("DrawModel", function(dme)
    dme:ForcedMaterialOverride(mat)
    dme:SetColorModulation(selectedcolor[1]/255, selectedcolor[2]/255, selectedcolor[3]/255)
    dme:SetAlphaModulation(1)
-   dme:DepthRange(0, (visible_only or (backtrack_visible_only and dme:IsDrawingBackTrack())) and 1 or 0.2)
+   dme:DepthRange(0, ((visible_only and not fill) or (backtrack_visible_only and dme:IsDrawingBackTrack())) and 1 or 0.2)
    dme:Execute()
 
    render.SetStencilEnable(false)
