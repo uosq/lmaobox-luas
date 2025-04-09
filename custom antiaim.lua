@@ -21,10 +21,10 @@ local yaw_modes = {
 
 local spin_speed = 10
 
-local real_pitch = pitch_modes.none
+local real_pitch = pitch_modes.fakeup
 
-local real_yaw = yaw_modes.jitter
-local fake_yaw = yaw_modes.forward
+local real_yaw = yaw_modes.left
+local fake_yaw = yaw_modes.right
 
 ---@param mode pitch_modes
 local function get_pitch(mode)

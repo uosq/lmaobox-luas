@@ -81,7 +81,6 @@ local entities = entities
 local aimbot = aimbot
 local string = string
 local playerlist = playerlist
-local models = models
 
 local flat_material_string <const> = [[
 "UnlitGeneric"

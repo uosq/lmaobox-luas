@@ -77,6 +77,8 @@ local BACKUP_COMMANDS_SIZE <const> = 3
 local SIGNONSTATE_TYPE <const> = 6
 local CLC_MOVE_TYPE <const> = 9
 
+local old_tickbase = 0
+
 --- disable lbox's tick shifting stuff
 gui.SetValue("double tap", "none")
 gui.SetValue("dash move key", 0)
@@ -312,6 +314,12 @@ local function HandleInputs(usercmd)
 		usercmd.sendpacket = false
 		charged_ticks = 0
 	end
+
+	if recharging or warping then
+		local player = entities:GetLocalPlayer()
+		if not player then return end
+		player:SetPropInt(old_tickbase, "m_nTickBase")
+	end
 end
 
 local function HandleSpectators()
@@ -388,6 +396,14 @@ local function DrawTicks()
 	draw.TextShadow(textX, textY, formatted_text)
 end
 
+local function TryToFixTickBase(stage)
+	if stage == E_ClientFrameStage.FRAME_NET_UPDATE_START then
+		local player = entities:GetLocalPlayer()
+		if not player then return end
+		old_tickbase = player:GetPropInt("m_nTickBase")
+	end
+end
+
 callbacks.Unregister("SendNetMsg", "SmoothWarpNetMsg")
 callbacks.Register("SendNetMsg", "SmoothWarpNetMsg", MsgManager)
 
@@ -399,6 +415,8 @@ callbacks.Register("Draw", "SmoothWarpDraw", DrawTicks)
 
 callbacks.Unregister("CreateMove", "SmoothWarpCreateMove2")
 callbacks.Register("CreateMove", "SmoothWarpCreateMove2", HandleSpectators)
+
+callbacks.Register("FrameStageNotify", "smoothwarpframestagenotify", TryToFixTickBase)
 
 callbacks.Unregister("Unload", "SmoothWarpUnload")
 --- make sure this is unique enough to not register on top of another unload callback
