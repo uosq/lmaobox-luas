@@ -4,7 +4,7 @@
 local font = draw.CreateFont("TF2 BUILD", 16, 1000)
 local netvar = "m_flChargedDamage"
 
-local machina_index = 526
+local machina_index = 526 // 1
 
 local function clamp(num, min, max)
    return math.max(min, math.min(num, max))

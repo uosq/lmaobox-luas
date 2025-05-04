@@ -1,11 +1,11 @@
 local only_on_menu = false
 local rainbow_balls = false      --- guaranteed rainbow snowflakes
 local random_rainbow_balls = true
-local chance_of_rainbow_ball = 8 --- 1/N, with N = number you replace "8" with
-local num_balls = 500            --- its a good compromise, if you want more i recommend lowering the font size (22 is the default here)
+local chance_of_rainbow_ball = 8 // 1 --- 1/N, with N = number you replace "8" with
+local num_balls = 500 // 1            --- its a good compromise, if you want more i recommend lowering the font size (22 is the default here)
 
 local balls = {}
-local vertical_wind = 3
+local vertical_wind = 3 // 1
 local width, height = draw.GetScreenSize()
 local font = draw.CreateFont("Arial", 22, 1000)
 draw.SetFont(font)

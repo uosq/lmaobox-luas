@@ -52,10 +52,10 @@ local settings = {
 --- end of settings
 --- dont change stuff below this line pls
 
-local charged_ticks = 0
-local next_passive_recharge_tick = 0
-local last_pressed_tick = 0
-local maxticks = 0
+local charged_ticks = 0 // 1
+local next_passive_recharge_tick = 0 // 1
+local last_pressed_tick = 0 // 1
+local maxticks = 0 // 1
 
 local warping, recharging = false, false
 local shooting = false
@@ -71,11 +71,11 @@ local font <const> = draw.CreateFont("TF2 BUILD", 16, 1000)
 
 local warning_string = "Disabled double tap and dash, you can recharge with antiaim"
 
-local NEW_COMMANDS_SIZE <const> = 4
-local BACKUP_COMMANDS_SIZE <const> = 3
+local NEW_COMMANDS_SIZE <const> = 4 // 1
+local BACKUP_COMMANDS_SIZE <const> = 3 // 1
 
-local SIGNONSTATE_TYPE <const> = 6
-local CLC_MOVE_TYPE <const> = 9
+local SIGNONSTATE_TYPE <const> = 6 // 1
+local CLC_MOVE_TYPE <const> = 9 // 1
 
 local old_tickbase = 0
 

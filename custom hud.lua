@@ -1,4 +1,5 @@
-local alib = require("alib")
+local alib_source = http.Get("https://github.com/uosq/lbox-alib/releases/download/0.44.1/source.lua")
+local alib = load(alib_source)()
 alib.settings.window.title.fade.enabled = true
 alib.settings.window.outline.thickness = 0
 alib.settings.checkbox.shadow.offset = 0
@@ -429,7 +430,7 @@ local function chat_msgs(msg)
 		bf:SetCurBit(8)
 
 		local chatType = bf:ReadString(256)
-		chatType = string.sub(chatType, 2) -- skipping that fucking character
+		chatType = string.sub(chatType, 2) -- skip a useless character
 		local playerName = bf:ReadString(256)
 		local message = bf:ReadString(256)
 

@@ -8,6 +8,7 @@ alib.settings.window.title.fade.enabled = true
 
 local spectators = {}
 local spectated = false
+local gap = 2
 --local spectated_in_firstperson = false
 
 local width, height = draw.GetScreenSize()
@@ -29,7 +30,6 @@ callbacks.Register("FrameStageNotify", function (stage)
       local specs = {}
       local window_height = 0
       local window_width = 0
-      local gap = 2
       local speced = false
 
       for _, player in pairs(players) do
@@ -58,7 +58,6 @@ end)
 
 callbacks.Register("Draw", function (param)
    if not spectated then return end
-   local gap = 2
    local current_text_y = window.y
    window.x = math.floor(width/2) - math.floor(window.width/2)
    alib.objects.window(window.width, window.height, window.x, window.y, "spectators")
