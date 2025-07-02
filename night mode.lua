@@ -1,5 +1,6 @@
 --- made by navet
 
+--- 1.0 to 0.0, more or less than that and it will simply clamp to 0.0 or 1.0
 local brightness = 0.3
 
 ---@param r number
