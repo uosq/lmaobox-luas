@@ -48,6 +48,6 @@ end
 
 apply_color(brightness / 100, brightness / 100, brightness / 100, false)
 
---callbacks.Register("DrawStaticProps", Prop)
+callbacks.Register("DrawStaticProps", Prop)
 callbacks.Register("DrawModel", DrawModel)
 callbacks.Register("Unload", Unload)
