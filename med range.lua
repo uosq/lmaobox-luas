@@ -19,37 +19,15 @@ local dLine = draw.Line
 local dColor = draw.Color
 local dOutlinedCircle = draw.OutlinedCircle
 local angle_step <const> = 2 * math.pi / num_segments
-local sqrt, cos, sin = math.sqrt, math.cos, math.sin
 
 local prev_circles = {} -- store previous circle points for interpolation
-
----@param v Vector3
----@return Vector3
-local function normalize(v)
-	return v / v:Length()
-end
-
-local vec3 = Vector3
-local upvec3 = vec3(0, 0, 1)
-local n = normalize(upvec3)
-
----@param a Vector3
----@param b Vector3
----@return Vector3
-local function cross(a, b)
-	return Vector3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
-end
-
---- precomputed stuff
-local base = vec3(1, 0, 0) -- use x-axis as base
-local u = normalize(cross(n, base))
-local pos_offset = vec3(0, 0, 10)
 
 ---@param start_pos Vector3
 ---@param end_pos Vector3
 ---@return Trace
 local function trace_line(start_pos, end_pos)
-	local res = engine.TraceLine and engine.TraceLine(start_pos, end_pos, MASK_SOLID_BRUSHONLY)
+	local TraceLine = engine.TraceLine
+	local res = TraceLine and TraceLine(start_pos, end_pos, MASK_SOLID_BRUSHONLY)
 	return res and res.fraction and res or { fraction = 1.0, endpos = end_pos }
 end
 
@@ -57,6 +35,7 @@ end
 ---@param y number
 ---@param z number
 local function get_ground_z(x, y, z)
+	local vec3 = Vector3
 	local trace = trace_line(vec3(x, y, z + 100), vec3(x, y, z - 200))
 	return (trace.fraction < 0.9 and trace.endpos and trace.endpos.z) or z
 end
@@ -65,6 +44,8 @@ end
 ---@param ideal Vector3
 ---@param radius number
 local function project(center, ideal, radius)
+	local sqrt = math.sqrt
+	local vec3 = Vector3
 	local dx, dy = ideal.x - center.x, ideal.y - center.y
 	local len_2d = sqrt(dx * dx + dy * dy)
 
@@ -93,6 +74,7 @@ end
 ---@param t number
 ---@return Vector3
 local function lerp_vec3(a, b, t)
+	local vec3 = Vector3
 	return vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
 end
 
@@ -100,8 +82,12 @@ end
 ---@param radius number
 ---@param circle_name string
 local function draw_3d_circle(center, radius, circle_name)
+	local cos, sin = math.cos, math.sin
+	local vec3 = Vector3
+
 	-- calculate the current circle points
 	local current_points = {}
+
 	for i = 0, num_segments do
 		local a = (i % num_segments) * angle_step
 
@@ -166,7 +152,10 @@ local function Draw()
 		return
 	end
 
+	local vec3 = Vector3
+
 	local pos = lp:GetAbsOrigin()
+	local pos_offset = vec3(0, 0, 10)
 	pos = pos + pos_offset --- fixes (most) ground inconsistencies that the map might have
 
 	if lp:GetTeamNumber() == 2 then
@@ -180,4 +169,9 @@ local function Draw()
 	draw_3d_circle(pos, STOPCHARGE_DISTANCE, "stop_circle")
 end
 
+local function Unload()
+	prev_circles = nil
+end
+
 callbacks.Register("Draw", Draw)
+callbacks.Register("Unload", Unload)

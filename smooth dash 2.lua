@@ -17,9 +17,10 @@ local smallfont = draw.CreateFont("TF2 BUILD", 8, 1000)
 ---
 
 local modes = {
-	slow = 0,
-	normal = 1,
-	fast = 2,
+	slow = 0, --- really fucking stupid
+	normal = 1, --- normal warp
+	fast = 2, --- fast short warp
+	-- dt = 3, i wish we could do this
 }
 
 local current_mode = modes.normal
@@ -127,6 +128,13 @@ local function CreateMove(cmd)
 
 	if recharging then
 		cmd.buttons = 0
+		cmd.tick_count = 2147483647 --- this apparently fixes the interpolation issue (bs, doesnt do shit)
+		local plocal = entities.GetLocalPlayer()
+		if not plocal then
+			return
+		end
+
+		plocal:SetPropFloat(globals.CurTime() + 0.1, "m_flAnimTime")
 	end
 end
 
@@ -162,7 +170,10 @@ local function SendNetMsg(msg)
 					bf:WriteInt(0, 3) --- m_nBackupCommands
 					storedticks = clamp(storedticks - backupcmds, 0, GetMaxTicks())
 				else
-					bf:WriteInt(2, 4) --- m_nNewCommands
+					--- this is kinda janky, but it works so who cares
+					local totalcmds = newcmds + backupcmds
+					totalcmds = clamp(totalcmds - 1, 0, MAX_NEW_COMMANDS + MAX_BACKUP_COMMANDS)
+					bf:WriteInt(totalcmds, 4) --- m_nNewCommands
 					bf:WriteInt(1, 3) --- m_nBackupCommands
 					storedticks = clamp(storedticks - 1, 0, GetMaxTicks())
 				end
@@ -177,8 +188,6 @@ local function SendNetMsg(msg)
 	elseif msg:GetType() == 6 and clientstate:GetClientSignonState() == E_SignonState.SIGNONSTATE_SPAWN then
 		storedticks = 0
 	end
-
-	return true
 end
 
 ---@param bVar boolean

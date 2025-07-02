@@ -27,11 +27,15 @@ local options = {
   --]]
 	aimbot = {
 		size = 475,
-		["aim bot"] = {
+		{
+			label = "aimbot",
+			name = "aim bot",
 			style = LBOX_Styles.checkbox,
 			side = LBOX_Sides.left,
 		},
-		["aim key"] = {
+		{
+			label = "aimkey",
+			name = "aim key",
 			style = LBOX_Styles.checkbox,
 			side = LBOX_Sides.left,
 		},
@@ -41,6 +45,7 @@ local options = {
 local tabs = { aimbot = "aimbot", trigger = "trigger", esp = "esp", radar = "radar", visual = "visual", misc = "misc" }
 local current_tab = tabs.aimbot
 local font <const> = draw.CreateFont("TF2 BUILD", 12, 1000, FONTFLAG_CUSTOM | FONTFLAG_OUTLINE)
+local last_keypress_tick = 0
 
 local window = {
 	x = 0,
@@ -70,10 +75,10 @@ end
 
 ---@param index integer
 ---@param name string
----@param value boolean
 ---@param side integer LBOX_Sides
 ---@param color integer[]
-local function DrawCheckbox(index, name, value, side, color)
+---@param label string
+local function DrawCheckbox(index, label, name, side, color)
 	local x, y, width, height
 	x = window.x + (side == LBOX_Sides.left and 162 or 275)
 	y = window.y + (option_startY * index)
@@ -85,11 +90,15 @@ local function DrawCheckbox(index, name, value, side, color)
 
 	draw.SetFont(font)
 	draw.Color(255, 255, 255, 255)
-	draw.Text(x + 10, y + 5, name)
-end
+	draw.Text(x + 10, y + 5, label)
 
-local function bGUIValue(name)
-	return gui.GetValue(name) == 1
+	local state, tick = input.IsButtonPressed(E_ButtonCode.MOUSE_LEFT)
+
+	if state and tick > last_keypress_tick and is_mouse_inside({ x = x, y = y, width = width, height = height }) then
+		last_keypress_tick = tick
+		local val = gui.GetValue(name)
+		gui.SetValue(name, val == 1 and 0 or 1)
+	end
 end
 
 local function RenderWindow()
@@ -103,11 +112,11 @@ local function RenderWindow()
 
 	for key, option in pairs(options) do
 		local index = 1
-		for name, value in pairs(option) do
+		for value in pairs(option) do
 			if type(value) == "table" then
 				index = index + 1
 				if value.style == LBOX_Styles.checkbox then
-					DrawCheckbox(index, name, bGUIValue(name), value.side, color)
+					DrawCheckbox(index, value.label, value.option, value.side, color)
 				end
 			end
 		end
