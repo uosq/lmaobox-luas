@@ -33,13 +33,13 @@ local settings = {
 	passive_recharge = {
 		enabled = true,
 		while_dead = true,
-		time = 1, --- time between each passive recharge (in seconds)
+		time = 1, --- ticks between each passive recharge (use game ticks, 66 ≈ 1 second)
 		toggle_key = E_ButtonCode.KEY_R,
 
 		randomized = {
-			enabled = true, --- randomizes when we'll recharge and ignores passive_recharge.time
-			min_time = 0.5,
-			max_time = 5,
+			enabled = true, --- randomizes when we'll recharge and ignores passive_recharge.time. Values are in ticks.
+			min_time = 20,
+			max_time = 200,
 		},
 	},
 
@@ -48,16 +48,22 @@ local settings = {
 		enabled = true,
 		key = E_ButtonCode.KEY_F,
 	},
+
+	burst_mode = {
+		enabled = false, --- if true, sends ALL accumulated ticks at once instead of one per warp
+		key = E_ButtonCode.KEY_G, --- separate key for burst warp
+	},
 }
 --- end of settings
 --- dont change stuff below this line pls
 
 local charged_ticks = 0 // 1
-local next_passive_recharge_tick = 0 // 1
+local next_passive_recharge_tick = globals.TickCount() + settings.passive_recharge.time // 1
 local last_pressed_tick = 0 // 1
 local maxticks = 0 // 1
 
 local warping, recharging = false, false
+local burst_warping = false
 local shooting = false
 local localplayer_alive = false
 local localplayer_velocity = 0
@@ -78,6 +84,9 @@ local SIGNONSTATE_TYPE <const> = 6 // 1
 local CLC_MOVE_TYPE <const> = 9 // 1
 
 local old_tickbase = 0
+
+-- Tracks the previous choked command count so we can salvage only "new" chokes
+local last_choked_commands = 0 // 1
 
 --- disable lbox's tick shifting stuff
 gui.SetValue("double tap", "none")
@@ -101,8 +110,9 @@ local function clamp(value, min, max)
 	return math.min(math.max(value, min), max)
 end
 
-local function clc_Move()
-	local t = { new_commands = 2, backup_commands = 1, buffer = BitBuffer() }
+local function clc_Move(num_commands)
+	num_commands = num_commands or 2 -- default to 2 for single warp
+	local t = { new_commands = num_commands, backup_commands = 1, buffer = BitBuffer() }
 
 	function t:init()
 		self.buffer:Reset()
@@ -145,7 +155,7 @@ local function HandleJoinServers(msg)
 	if clientstate:GetClientSignonState() == E_SignonState.SIGNONSTATE_SPAWN then
 		maxticks = GetMaxServerTicks()
 		charged_ticks = 0
-		next_passive_recharge_tick = 0
+		next_passive_recharge_tick = globals.TickCount() + settings.passive_recharge.time
 		last_pressed_tick = 0
 		warping, recharging = false, false
 		shooting = false
@@ -184,15 +194,21 @@ local function HandlePassiveRecharge(msg)
 		charged_ticks = charged_ticks + 1
 		return true
 	end
+	-- If the player is standing completely still, instantly refill all available ticks.
+	-- A small threshold (<= 0.1) is used instead of exactly 0 to avoid float precision edge-cases.
+	if localplayer_velocity <= 0.1 then
+		charged_ticks = maxticks
+		return true
+	end
 	if globals.TickCount() >= next_passive_recharge_tick then
 		charged_ticks = charged_ticks + 1
 		local time = settings.passive_recharge.randomized.enabled
-				and engine.RandomFloat(
+				and engine.RandomInt(
 					settings.passive_recharge.randomized.min_time,
 					settings.passive_recharge.randomized.max_time
 				)
 			or settings.passive_recharge.time
-		next_passive_recharge_tick = globals.TickCount() + (time * 66.67)
+		next_passive_recharge_tick = globals.TickCount() + time
 		return true
 	end
 	return false
@@ -255,6 +271,41 @@ local function HandleWarp(msg)
 	return false
 end
 
+--- Returns true if the burst warp was successful (sends ALL accumulated ticks at once)
+---@param msg NetMessage
+local function HandleBurstWarp(msg)
+	if
+		(shooting and not settings.warp.while_shooting)
+		or (not settings.warp.standing_still and localplayer_velocity <= 0)
+		or (spectated and not settings.both.ignore_spectators)
+	then
+		return true
+	end
+
+	if
+		localplayer_alive
+		and charged_ticks > 0
+		and CanShiftTick()
+		and globals.TickCount() % (settings.warp.delay + 1) == 0
+	then
+		-- Send ALL accumulated ticks at once for instant melee/movement
+		local commands_to_send = charged_ticks + 1 -- +1 for the current tick
+		local moveMsg <close> = clc_Move(commands_to_send)
+		moveMsg:init()
+
+		-- EXAMPLE: Force +attack on all burst ticks for instant melee
+		-- You can modify any button bits here before sending
+		-- Uncomment these lines to auto-attack during burst:
+		-- local usercmd = input.GetUserCmd()
+		-- usercmd.buttons = usercmd.buttons | IN_ATTACK  -- Force attack bit
+
+		msg:ReadFromBitBuffer(moveMsg.buffer)
+		charged_ticks = 0 -- consume all ticks
+		return true
+	end
+	return false
+end
+
 ---@param msg NetMessage
 local function MsgManager(msg)
 	if msg:GetType() == SIGNONSTATE_TYPE then
@@ -262,7 +313,9 @@ local function MsgManager(msg)
 	end
 
 	if msg:GetType() == CLC_MOVE_TYPE then
-		if warping and not recharging then
+		if burst_warping and not recharging then
+			HandleBurstWarp(msg)
+		elseif warping and not recharging then
 			HandleWarp(msg)
 		else
 			if HandleRecharge(msg) then
@@ -279,6 +332,7 @@ local function HandleInputs(usercmd)
 	end
 	warping = input.IsButtonDown(settings.warp.key)
 	recharging = input.IsButtonDown(settings.recharge.key)
+	burst_warping = settings.burst_mode.enabled and input.IsButtonDown(settings.burst_mode.key)
 	maxticks = GetMaxServerTicks()
 
 	local localplayer = entities:GetLocalPlayer()
@@ -292,6 +346,37 @@ local function HandleInputs(usercmd)
 	localplayer_alive = localplayer:IsAlive()
 	localplayer_velocity = localplayer:EstimateAbsVelocity():Length()
 	localplayer_isRed = localplayer:GetTeamNumber() == 2
+
+	-- Salvage newly accumulated choked packets (e.g. from genuine network lag) as free recharge
+	-- Only when we are NOT currently using warp or manual recharge keys.
+	local current_choked = clientstate:GetChokedCommands()
+	if not warping and not burst_warping and not recharging and current_choked > last_choked_commands then
+		local gained = current_choked - last_choked_commands
+		charged_ticks = charged_ticks + gained
+	end
+	last_choked_commands = current_choked
+
+	-- ------------------------------------------------------------------
+	--  Time-based passive recharge fallback (runs every CreateMove tick)
+	-- ------------------------------------------------------------------
+	if settings.passive_recharge.enabled and not warping and not burst_warping and not recharging then
+		-- Instantly max when standing still
+		if localplayer_velocity <= 0.1 then
+			charged_ticks = maxticks
+		else
+			if globals.TickCount() >= next_passive_recharge_tick then
+				charged_ticks = charged_ticks + 1
+				-- Schedule the next passive recharge
+				local time = settings.passive_recharge.randomized.enabled
+						and engine.RandomInt(
+							settings.passive_recharge.randomized.min_time,
+							settings.passive_recharge.randomized.max_time
+						)
+					or settings.passive_recharge.time
+				next_passive_recharge_tick = globals.TickCount() + time
+			end
+		end
+	end
 
 	--- i wanted this to be one line lul
 	shooting = settings.both.check_aimbot_target
@@ -315,9 +400,11 @@ local function HandleInputs(usercmd)
 		charged_ticks = 0
 	end
 
-	if recharging or warping then
+	if recharging or warping or burst_warping then
 		local player = entities:GetLocalPlayer()
-		if not player then return end
+		if not player then
+			return
+		end
 		player:SetPropInt(old_tickbase, "m_nTickBase")
 	end
 end
@@ -399,7 +486,9 @@ end
 local function TryToFixTickBase(stage)
 	if stage == E_ClientFrameStage.FRAME_NET_UPDATE_START then
 		local player = entities:GetLocalPlayer()
-		if not player then return end
+		if not player then
+			return
+		end
 		old_tickbase = player:GetPropInt("m_nTickBase")
 	end
 end
