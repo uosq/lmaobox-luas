@@ -28,7 +28,7 @@ local function apply_color(r, g, b, a, sky)
 end
 
 local function Prop()
-	render.SetColorModulation(1 - brightness, 1 - brightness, 1 - brightness)
+	render.SetColorModulation(brightness, brightness, brightness)
 end
 
 ---@param ctx DrawModelContext
