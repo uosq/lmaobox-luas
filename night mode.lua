@@ -1,3 +1,5 @@
+--- made by navet
+
 local brightness = 0.3
 
 ---@param r number
@@ -31,7 +33,8 @@ end
 
 ---@param ctx DrawModelContext
 local function DrawModel(ctx)
-	local ent = ctx:GetEntity()
+	--- does this work 100%? fuck no
+	--- but it should work 80% enough
 	if string.find(ctx:GetModelName(), "prop") then
 		ctx:SetColorModulation(brightness, brightness, brightness)
 	end
