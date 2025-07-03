@@ -7,8 +7,8 @@ callbacks.Register("CreateMove", function(cmd)
 		return
 	end
 
-	if (cmd.tick_count % 22) == 0 then
-		plocal:SetPropFloat(globals.CurTime() - (engine.RandomInt(1, 21) * globals.TickInterval()), "m_flAnimTime")
+	if (cmd.tick_count % 21) == 0 then
+		plocal:SetPropFloat(globals.CurTime() - (21 * globals.TickInterval()), "m_flAnimTime")
 	else
 		plocal:SetPropFloat(globals.CurTime() + 1, "m_flAnimTime")
 	end
