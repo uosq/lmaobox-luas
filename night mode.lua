@@ -3,21 +3,27 @@
 --- settings
 
 --- 0 to 100
-local brightness = 10
+local brightness = 40
 
 --- end of settings
 
+--- disable fog (it looks bad)
+client.SetConVar("fog_enable", 0)
+client.SetConVar("fog_override", 1)
+---
+
 local value = brightness / 100
 
----@param r number
----@param g number
----@param b number
-local function apply_color(r, g, b)
+local function apply_color()
 	materials.Enumerate(function(material)
 		local group = material:GetTextureGroupName()
 		local name = material:GetName()
 
 		if
+			--- wait a fucking second
+			--- why is this or?
+			--- well shit, making group be only world textures breaks text somehow
+			--- fml
 			group == "World textures"
 			or string.find(name, "concrete")
 			or string.find(name, "wood")
@@ -25,9 +31,10 @@ local function apply_color(r, g, b)
 			or string.find(name, "wall")
 			or string.find(name, "overlays")
 		then
-			material:SetShaderParam("$color2", Vector3(r, g, b))
+			material:SetShaderParam("$color2", Vector3(value, value, value))
 		end
 
+		--- janky ahh
 		if string.find(name, "props") then
 			if brightness <= 20 then
 				material:SetShaderParam(
@@ -82,10 +89,20 @@ end
 
 local function Unload()
 	unapply_color()
+
+	client.SetConVar("fog_enable", -1)
+	client.SetConVar("fog_override", 0)
 end
 
-apply_color(value, value, value)
+local function SendNetMsg(msg)
+	if msg:GetType() == 6 and clientstate:GetClientSignonState() == E_SignonState.SIGNONSTATE_SPAWN then
+		apply_color()
+	end
+end
 
+apply_color()
+
+callbacks.Register("SendNetMsg", SendNetMsg)
 callbacks.Register("DrawStaticProps", Prop)
 callbacks.Register("DrawModel", DrawModel)
 callbacks.Register("Unload", Unload)
