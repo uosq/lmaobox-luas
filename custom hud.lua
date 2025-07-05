@@ -6,6 +6,9 @@ local font = draw.CreateFont("TF2 BUILD", font_size, 600)
 local health_unformatted = "%s / %s"
 local ammo_unformatted = "%s / %s"
 
+---@type table<number, {player: Entity, message: string, tick_to_disappear: number, type: "TF_Chat_All"|"TF_Chat_Team"}>
+local chat_messages = {}
+
 ---@alias RGB {[1]: integer, [2]: integer, [3]: integer}
 
 ---@param color RGB?
@@ -36,6 +39,169 @@ local function DrawCrosshair(current_weapon, center_x, center_y)
 	draw.Line(center_x - size, center_y, center_x, center_y) -- --x
 	draw.Line(center_x, center_y - size, center_x, center_y + size) -- center to top
 	draw.Line(center_x, center_y, center_x, center_y + size) -- center to bottom
+end
+
+---@param msg UserMessage
+local function chat_msgs(msg)
+	if msg:GetID() == E_UserMessage.SayText2 then
+		local bf = msg:GetBitBuffer()
+		bf:SetCurBit(8)
+
+		local chatType = bf:ReadString(256)
+		chatType = string.sub(chatType, 2) -- skip a useless character
+		local playerName = bf:ReadString(256)
+		local message = bf:ReadString(256)
+
+		local current_tick = globals.TickCount()
+		local hud_saytext_time = client.GetConVar("hud_saytext_time")
+
+		local players = entities.FindByClass("CTFPlayer")
+		for _, player in pairs(players) do
+			if player:GetName() == playerName then
+				chat_messages[#chat_messages + 1] = {
+					player = player,
+					message = message,
+					tick_to_disappear = current_tick + (hud_saytext_time * 66),
+					type = chatType,
+				}
+			end
+		end
+	end
+end
+
+--- i will not lie, i asked AI to do this
+--- but only this function was made by AI
+--- the other ones were made by me
+---@param x integer
+---@param y integer
+---@param text string
+---@param lineHeight integer|nil Optional line height (defaults to font height + 2)
+local function DrawColoredText(x, y, text, lineHeight)
+	lineHeight = lineHeight or 18 -- Default line height, adjust as needed
+
+	-- Split text by newlines first
+	local lines = {}
+	for line in text:gmatch("([^\n]*)\n?") do
+		if line ~= "" or text:match("\n") then
+			table.insert(lines, line)
+		end
+	end
+
+	-- Handle case where there are no newlines
+	if #lines == 0 then
+		lines = { text }
+	end
+
+	-- Draw each line
+	for lineIndex, line in ipairs(lines) do
+		local currentX = x
+		local currentY = y + (lineIndex - 1) * lineHeight
+		local defaultColor = { 255, 255, 255, 255 }
+		local lastIndex = 1
+
+		-- Pattern to match color tags like {#fcba03} or {#fcba03ff}
+		for startPos, colorTag, hex, endPos in line:gmatch("()({#([%x]+)})()") do
+			-- Draw preceding plain text (if any)
+			if startPos > lastIndex then
+				local plainText = line:sub(lastIndex, startPos - 1)
+				draw.Color(table.unpack(defaultColor))
+				draw.Text(currentX, currentY, plainText)
+				currentX = currentX + draw.GetTextSize(plainText)
+			end
+
+			-- hex -> RGBA
+			local r, g, b, a = 255, 255, 255, 255
+			if #hex == 6 then
+				r = tonumber(hex:sub(1, 2), 16) or 255
+				g = tonumber(hex:sub(3, 4), 16) or 255
+				b = tonumber(hex:sub(5, 6), 16) or 255
+			elseif #hex == 8 then
+				r = tonumber(hex:sub(1, 2), 16) or 255
+				g = tonumber(hex:sub(3, 4), 16) or 255
+				b = tonumber(hex:sub(5, 6), 16) or 255
+				a = tonumber(hex:sub(7, 8), 16) or 255
+			end
+
+			-- update lastIndex to skip the color tag
+			lastIndex = endPos
+
+			-- find the next color tag or end of string to determine colored text length
+			local nextTagStart = line:find("{#", lastIndex)
+			local coloredText
+			if nextTagStart then
+				coloredText = line:sub(lastIndex, nextTagStart - 1)
+			else
+				coloredText = line:sub(lastIndex)
+			end
+
+			-- draw the colored text
+			if coloredText and coloredText ~= "" then
+				draw.Color(r, g, b, a)
+				draw.Text(currentX, currentY, coloredText)
+				currentX = currentX + draw.GetTextSize(coloredText)
+				lastIndex = lastIndex + #coloredText
+			end
+		end
+
+		-- draw any remaining plain text on this line
+		if lastIndex <= #line then
+			local remaining = line:sub(lastIndex)
+			if remaining ~= "" then
+				draw.Color(table.unpack(defaultColor))
+				draw.Text(currentX, currentY, remaining)
+			end
+		end
+	end
+end
+
+local function DrawChat()
+	if #chat_messages == 0 then
+		return
+	end
+
+	local screen_w, screen_h = draw.GetScreenSize()
+	local x, y, width, height
+	local margin = 15
+	width, height = 400, 250
+	x = screen_w - width - margin
+	y = (screen_h * 0.75) // 1
+
+	draw.Color(76, 86, 106, 200)
+	draw.FilledRect(x, y - 25, x + width, y)
+
+	local text_w, text_h = draw.GetTextSize("chat")
+	DrawText(nil, x + (width // 2) - (text_w // 2), y - (25 // 2) - (text_h // 2), "chat")
+
+	draw.Color(67, 76, 94, 200)
+	draw.FilledRect(x, y, x + width, y + height)
+
+	x = x + 3
+	y = y + 3
+	width = width - 6
+	height = height - 6
+	draw.Color(46, 52, 64, 200)
+	draw.FilledRect(x, y, x + width, y + height)
+
+	local start_y = y + 3
+
+	for i, msg in pairs(chat_messages) do
+		if msg.tick_to_disappear <= globals.TickCount() then
+			chat_messages[i] = nil
+		end
+	end
+
+	for i, msg in pairs(chat_messages) do
+		local color = nil
+
+		if msg.player:GetTeamNumber() == 2 then
+			color = "#88c0d0"
+		else
+			color = "#bf616a"
+		end
+
+		DrawColoredText(x + 3, start_y, string.format("{%s}%s{#e5e9f0}: %s", color, msg.player:GetName(), msg.message))
+		start_y = start_y + font_size + 5
+	end
 end
 
 local function Draw()
@@ -77,6 +243,13 @@ local function Draw()
 		return
 	end
 
+	if gamerules.GetRoundState() == E_RoundState.ROUND_GAMEOVER and client.GetConVar("cl_drawhud") == 0 then
+		client.SetConVar("cl_drawhud", 1)
+		return
+	elseif gamerules.GetRoundState() == E_RoundState.ROUND_GAMEOVER then
+		return
+	end
+
 	if client.GetConVar("cl_drawhud") == 1 then
 		client.SetConVar("cl_drawhud", 0)
 	end
@@ -91,8 +264,8 @@ local function Draw()
 		local m_hObserverTarget = plocal:GetPropEntity("m_hObserverTarget")
 
 		if m_hObserverTarget then
-			local text_w, text_h = draw.GetTextSize("spectating now")
-			DrawText(nil, center_x - (text_w // 2), start_y, "spectating now")
+			local text_w, text_h = draw.GetTextSize("spectating")
+			DrawText(nil, center_x - (text_w // 2), start_y, "spectating")
 
 			start_y = start_y + text_h + 5
 
@@ -118,6 +291,8 @@ local function Draw()
 
 		return
 	end
+
+	DrawChat()
 
 	local start_y = center_y + 20
 	local health = plocal:GetHealth()
@@ -545,3 +720,4 @@ local function Draw()
 end
 
 callbacks.Register("Draw", Draw)
+callbacks.Register("DispatchUserMessage", chat_msgs)
