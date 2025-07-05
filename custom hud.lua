@@ -13,7 +13,7 @@ local ammo_unformatted = "%s / %s"
 ---@param text string
 local function DrawText(color, x, y, text)
 	draw.Color(41, 46, 57, 255)
-	draw.Text(x + 1, y + 1, text)
+	draw.Text(x + 2, y + 2, text)
 
 	if color then
 		draw.Color(color[1], color[2], color[3], 255)
@@ -82,10 +82,32 @@ local function Draw()
 
 	local screen_w, screen_h = draw.GetScreenSize()
 	local center_x, center_y = screen_w // 2, screen_h // 2
-	local start_y = center_y + 20
 
 	draw.SetFont(font)
 
+	if not plocal:IsAlive() then
+		local start_y = screen_h // 6
+		local m_hObserverTarget = plocal:GetPropEntity("m_hObserverTarget")
+
+		if m_hObserverTarget then
+			local text_w, text_h = draw.GetTextSize("spectating now")
+			DrawText(nil, center_x - (text_w // 2), start_y, "spectating now")
+
+			start_y = start_y + text_h + 5
+
+			local name = m_hObserverTarget:GetName()
+			name = name == "" and string.format("entity index: %i", m_hObserverTarget:GetIndex()) or name
+
+			text_w, text_h = draw.GetTextSize(name)
+			DrawText(nil, center_x - (text_w // 2), start_y, name)
+
+			start_y = start_y + text_h + 5
+		end
+
+		return
+	end
+
+	local start_y = center_y + 20
 	local health = plocal:GetHealth()
 	local max_health = plocal:GetMaxHealth()
 	local health_ratio = health / max_health
@@ -308,6 +330,24 @@ local function Draw()
 
 				start_y = start_y + height + 5
 			end
+		end
+	elseif plocal:GetPropInt("m_iClass") == E_Character.TF2_Heavy then
+		local sandvich = plocal:GetEntityForLoadoutSlot(E_LoadoutSlot.LOADOUT_POSITION_SECONDARY)
+		if sandvich and sandvich:GetClass() == "CTFLunchBox" then
+			local width, height, x, y
+			local ready = plocal:GetPropDataTableInt("m_iAmmo")[5] == 1
+			local text = ready and "sandvich ready" or "sandvich not ready"
+
+			width, height = draw.GetTextSize(text)
+			x, y = center_x - (width // 2), start_y
+
+			if ready then
+				DrawText({ 143, 188, 187 }, x, y, text)
+			else
+				DrawText({ 191, 97, 106 }, x, y, text)
+			end
+
+			start_y = start_y + height + 5
 		end
 	end
 
