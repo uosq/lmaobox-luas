@@ -1,619 +1,250 @@
-local alib_source = http.Get("https://github.com/uosq/lbox-alib/releases/download/0.44.1/source.lua")
-local alib = load(alib_source)()
-alib.settings.window.title.fade.enabled = true
-alib.settings.window.outline.thickness = 0
-alib.settings.checkbox.shadow.offset = 0
+--- made by navet
 
-local screenw, screenh = draw.GetScreenSize()
-local centerx, centery = math.floor(screenw / 2), math.floor(screenh / 2)
+local font = draw.CreateFont("TF2 BUILD", 16, 600)
 
-local settings = {
-	health = true,
-	ammo = true,
-	crit = true,
-	warp = true,
-	killfeed = true,
-	chat = true,
-	metal = true,
-}
+local health_unformatted = "%s / %s"
+local ammo_unformatted = "%s / %s"
 
-local window = {
-	x = centerx - 350 / 2,
-	y = centery - 370 / 2,
-	width = 350,
-	height = 370,
-}
+---@alias RGB {[1]: integer, [2]: integer, [3]: integer}
 
---- i dont know why, i dont want to know why, but my piece of garbage code doesnt detect mouse clicks correctly
---- if i dont manually make the checkbox
-local health_checkbox = {
-	x = 10,
-	y = 10,
-	width = 50,
-	height = 50,
-	checked = settings.health
-}
+---@param color RGB?
+---@param x integer
+---@param y integer
+---@param text string
+local function DrawText(color, x, y, text)
+	draw.Color(41, 46, 57, 255)
+	draw.Text(x + 1, y + 1, text)
 
-local ammo_checkbox = {
-	x = 10,
-	y = 70,
-	width = 50,
-	height = 50,
-	checked = settings.ammo
-}
-
-local crit_checkbox = {
-	x = 10,
-	y = 130,
-	width = 50,
-	height = 50,
-	checked = settings.crit
-}
-
-local warp_checkbox = {
-	x = 10,
-	y = 190,
-	width = 50,
-	height = 50,
-	checked = settings.warp
-}
-
-local killfeed_checkbox = {
-	x = 10,
-	y = 250,
-	width = 50,
-	height = 50,
-	checked = settings.killfeed
-}
-
-local chat_checkbox = {
-	x = 10,
-	y = 310,
-	width = 50,
-	height = 50,
-	checked = settings.chat
-}
-
-local classes = { "scout", "soldier", "pyro", "demoman", "heavyweapons", "engineer", "medic", "sniper", "spy", "random" }
-local list = {
-	x = 110,
-	y = 10,
-	width = 180,
-	items = classes,
-	selected_item_index = 1,
-}
-
---- info panel
-
-local info_window = {
-	x = 5,
-	y = centery - 50 / 2,
-	width = 120,
-	height = 50
-}
-
---- info panel end
-
-local font = draw.CreateFont("TF2 BUILD", 24, 1000)
-local warp_font = draw.CreateFont("TF2 BUILD", 18, 1000)
-local chat_font = draw.CreateFont("TF2 BUILD", 12, 1000)
-alib.settings.font = warp_font
-
-client.RemoveConVarProtection("cl_drawhud")
-client.Command("cl_drawhud 0", true)
-gui.SetValue("double tap indicator size", 0)
-gui.SetValue("crit hack indicator size", 0)
-
-local should_draw_hud = true
-
-local TEAM_BLU, TEAM_RED = 3, 2
-
-local color = {
-	[TEAM_BLU] = { 102, 255, 255, 255 },
-	[TEAM_RED] = { 255, 100, 100, 255 },
-	[E_TeamNumber.TEAM_SPECTATOR] = { 255, 255, 255, 255 },
-	[E_TeamNumber.TEAM_UNASSIGNED] = { 255, 255, 255, 255 }
-}
-
-callbacks.Register("CreateMove", function()
-	should_draw_hud = not (engine.IsChatOpen() and engine.Con_IsVisible() and not engine.IsGameUIVisible() and client.GetConVar("_cl_classmenuopen") == 1)
-	if not should_draw_hud then
-		client.Command("cl_drawhud 1", true)
+	if color then
+		draw.Color(color[1], color[2], color[3], 255)
 	else
-		client.Command("cl_drawhud 0", true)
+		draw.Color(236, 239, 244, 255)
 	end
-end)
+	draw.Text(x, y, text)
+end
 
-local function hud()
-	if not should_draw_hud then return end
-	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) or engine.IsGameUIVisible() or engine.Con_IsVisible() then
+local function DrawCrosshair(center_x, center_y)
+	local size = 8
+	draw.Color(136, 192, 208, 255)
+	draw.Line(center_x, center_y, center_x + size, center_y) -- x--
+	draw.Line(center_x - size, center_y, center_x, center_y) -- --x
+	draw.Line(center_x, center_y - size, center_x, center_y + size) -- center to top
+	draw.Line(center_x, center_y, center_x, center_y + size) -- center to bottom
+end
+
+local function Draw()
+	if client.GetConVar("_cl_classmenuopen") == 1 then
+		if client.GetConVar("cl_drawhud") == 0 then
+			client.SetConVar("cl_drawhud", 1)
+		end
 		return
 	end
 
-	local localplayer = entities:GetLocalPlayer()
-	if not localplayer then return end
-
-	local weapon = localplayer:GetPropEntity("m_hActiveWeapon")
-	if not weapon then return end
-
-	local lastHeight = centery
-
-	-- match details
-	local state = gamerules.GetRoundState()
-	if state == E_RoundState.ROUND_RUNNING then
-		local width, height = 50, 5
-		local str = tostring(gamerules.GetTimeLeftInMatch())
-		draw.SetFont(font)
-		local textwidth, textheight = draw.GetTextSize(str)
-
-		local team_color = color[localplayer:GetTeamNumber()]
-
-		draw.Color(team_color[1], team_color[2], team_color[3], team_color[4])
-		draw.FilledRect(centerx - width, 0, centerx + width, height)
-
-		draw.Color(255, 255, 255, 255)
-		draw.SetFont(font)
-		draw.TextShadow(centerx - math.floor(textwidth / 2), height, str)
-	end
-
-	-- health
-	if settings.health then
-		local health = localplayer:GetHealth()
-		local maxhealth = localplayer:GetMaxHealth()
-		local health_str = string.format("HEALTH: %s", localplayer:GetHealth())
-		local healthSizeX, healthSizeY = draw.GetTextSize(health_str)
-		local healthColor = {}
-		healthColor.r = math.floor(255 * (1 - (health / maxhealth)))
-		healthColor.g = math.floor(255 * (health / maxhealth))
-		healthColor.b = 0
-
-		lastHeight = lastHeight + healthSizeY + 20
-		draw.Color(healthColor.r, healthColor.g, healthColor.b, 255)
-		draw.SetFont(font)
-		draw.TextShadow(centerx - math.floor(healthSizeX / 2), lastHeight, health_str)
-	end
-
-	-- ammo
-	if settings.ammo then
-		local isPrimaryWeapon = weapon:GetLoadoutSlot() == E_LoadoutSlot.LOADOUT_POSITION_PRIMARY
-		local isMelee = weapon:IsMeleeWeapon()
-		if not isMelee then
-			local ammoDataTable = localplayer:GetPropDataTableInt("m_iAmmo")
-			local primary_clip2, secondary_clip2 = ammoDataTable[2], ammoDataTable[3]
-			local clip1 = weapon:GetPropInt("m_iClip1")
-			local ammo_str = ""
-			if clip1 ~= -1 and clip1 ~= nil then
-				ammo_str = isPrimaryWeapon and string.format("%s/%s", clip1, primary_clip2) or
-					 string.format("%s/%s", clip1, secondary_clip2)
-			else
-				ammo_str = string.format("%s", primary_clip2)
-			end
-
-			local ammoW, ammoH = draw.GetTextSize(ammo_str)
-			draw.SetFont(font)
-			draw.Color(255, 255, 255, 255)
-
-			lastHeight = lastHeight + ammoH
-			draw.TextShadow(centerx - math.floor(ammoW / 2), lastHeight, ammo_str)
-		else
-			local melee_str = "MELEE"
-			local meleeW, meleeH = draw.GetTextSize(melee_str)
-			draw.SetFont(font)
-			draw.Color(255, 100, 100, 255)
-
-			lastHeight = lastHeight + meleeH
-			draw.TextShadow(centerx - math.floor(meleeW / 2), lastHeight, melee_str)
-		end
-	end
-
-	if settings.metal then
-		local isEngineer = localplayer:GetPropInt("m_iClass") == E_Character.TF2_Engineer
-		if isEngineer then
-			local ammoDataTable = localplayer:GetPropDataTableInt("m_iAmmo")
-			local metal_quantity = ammoDataTable[4]
-			local metal_str = string.format("%i/200", metal_quantity)
-			local metalW, metalH = draw.GetTextSize(metal_str)
-			draw.SetFont(font)
-			draw.Color(255, 255, 255, 255)
-			lastHeight = lastHeight + metalH
-			draw.TextShadow(centerx - math.floor(metalW / 2), lastHeight, metal_str)
-		end
-	end
-
-	-- warp / dt bar
-	if settings.warp then
-		local width, height = 100, 20
-		lastHeight = lastHeight + height + 5
-
-		-- background
-		draw.Color(50, 50, 50, 255)
-		draw.FilledRect(centerx - width, lastHeight, centerx + width, lastHeight + height)
-
-		-- bar
-		local percentage = warp.GetChargedTicks() / 23
-		if percentage == 1 then
-			draw.Color(150, 255, 150, 255)
-		else
-			draw.Color(255, 150, 150, 255)
-		end
-		draw.FilledRectFade(centerx - width + 2, lastHeight + 2, math.floor(centerx - width + (width * percentage * 2) - 2),
-			lastHeight + height - 2, 150, 10, false)
-
-		-- warp text
-		local maxticks = client.GetConVar("sv_maxusrcmdprocessticks") - 1
-		draw.SetFont(warp_font)
-		draw.Color(255, 255, 255, 150)
-		local str = string.format("TICKS: %s/%s", warp.GetChargedTicks(), maxticks)
-		local textwidth, textheight = draw.GetTextSize(str)
-		draw.Text(centerx - math.floor(textwidth / 2), lastHeight + 2, str)
-	end
-
-	-- crit bar
-	if settings.crit then
-		local width, height = 100, 20
-		lastHeight = lastHeight + height + 5
-
-		--- background
-		draw.Color(50, 50, 50, 255)
-		draw.FilledRect(centerx - width, lastHeight, centerx + width, lastHeight + height)
-
-		--- actual bar
-		local critbucket = weapon:GetCritTokenBucket()
-		if not critbucket then return end
-
-		local percentage = critbucket / 1000 -- 1000 is max
-		draw.Color(150, 150, 255, 255)
-		draw.FilledRectFade(centerx - width + 2, lastHeight + 2, math.floor(centerx - width + (width * percentage * 2) - 2),
-			lastHeight + height - 2, 150, 10, false)
-		local str = string.format("CRIT BUCKET: %.1f", weapon:GetCritTokenBucket())
-		local textwidth, textheight = draw.GetTextSize(str)
-		draw.SetFont(warp_font)
-		draw.Color(255, 255, 255, 150)
-		draw.Text(centerx - math.floor(textwidth / 2), lastHeight + 2, str)
-	end
-
-	--- engineer specific (sentry, dispenser, etc)
-	local isEngineer = localplayer:GetPropInt("m_iClass") == E_Character.TF2_Engineer
-	if isEngineer then
-		local hasSentry, hasDispenser, hasTeleEntrance, hasTeleExit = false, false, false, false
-		local sentries = entities.FindByClass("CObjectSentrygun")
-		local dispensers = entities.FindByClass("CObjectDispenser")
-		for k, sentry in pairs(sentries) do
-			if sentry:GetTeamNumber() == localplayer:GetTeamNumber() and sentry:GetPropEntity("m_hBuilder") == localplayer then
-				hasSentry = true
-				return
-			end
-		end
-		for k, dispenser in pairs(dispensers) do
-			if dispenser:GetTeamNumber() == localplayer:GetTeamNumber() and dispenser:GetPropEntity("m_hBuilder") == localplayer then
-				hasDispenser = true
-				return
-			end
-		end
-	end
-end
-
----@type table<number, {victim: Entity, attacker: Entity, assister: Entity?, tick_to_disappear: number}>
-local killfeed_deaths = {
-	--[[
-	{
-	victim: Entity,
-	attacker: Entity,
-	assister: Entity?,
-	tick_to_disappear = globals.TickCount() + (client.GetConVar("hud_deathnotice_time") * 66)
-	}
-	]]
-}
-
-local function draw_killfeed()
-	if not settings.killfeed then return end
-	if not should_draw_hud then return end
-
-	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) or engine.IsGameUIVisible() or engine.Con_IsVisible() then
+	local plocal = entities.GetLocalPlayer()
+	if not plocal then
 		return
 	end
 
-	local screenw, screenh = draw.GetScreenSize()
-	local lastHeight = 5
-	for pos, death in ipairs(killfeed_deaths) do
-		local death_string = ""
-		local died_alone = death.attacker == death.victim
-
-		if death.assister then
-			death_string = string.format("%s + %s x %s", death.attacker:GetName(), death.assister:GetName(),
-				death.victim:GetName())
-		else
-			death_string = string.format("%s x %s", death.attacker:GetName(), death.victim:GetName())
-		end
-
-		if died_alone then
-			death_string = string.format("%s died a horrible death :(", death.victim:GetName())
-		end
-
-		draw.SetFont(font)
-		local textwidth, textheight = draw.GetTextSize(death_string)
-
-		local x1 = screenw - textwidth - 30
-
-		--- background
-		--draw.Color(255, 255, 255, 255)
-		--draw.FilledRectFade(x1 - 15, lastHeight + textheight, x1 + textwidth + 15, lastHeight + textheight + textheight, 150, 50, false)
-
-		--- text
-		local color = color[death.attacker:GetTeamNumber()]
-		draw.Color(color[1], color[2], color[3], color[4])
-		draw.TextShadow(x1, lastHeight + textheight, death_string)
-		lastHeight = lastHeight + textheight + 10
-
-		if death.tick_to_disappear <= globals.TickCount() then
-			table.remove(killfeed_deaths, pos)
-		end
-	end
-end
-
--- damage logger / killfeed
----@param event GameEvent
-local function killfeed(event)
-	if not settings.chat then return end
-	if not should_draw_hud then return end
-	if event:GetName() == "player_death" then
-		local victim = entities.GetByUserID(event:GetInt("userid"))
-		if not victim then return end
-
-		local attacker = entities.GetByUserID(event:GetInt("attacker"))
-		if not attacker then return end
-
-		local assisterID, assister = event:GetInt("assister")
-		if assisterID then
-			assister = entities.GetByUserID(assisterID)
-		end
-
-		local current_tick = globals.TickCount()
-		local hud_deathnotice_time = client.GetConVar("hud_deathnotice_time")
-
-		killfeed_deaths[#killfeed_deaths + 1] = {
-			victim = victim,
-			attacker = attacker,
-			assister = assister,
-			tick_to_disappear =
-				 current_tick + (hud_deathnotice_time * 66 * 2)
-		}
-	end
-end
-
----@type table<number, {player: Entity, message: string, tick_to_disappear: number, type: "TF_Chat_All"|"TF_Chat_Team"}>
-local chat_messages = {}
-
-local function draw_chat()
-	if not settings.chat then return end
-	if not should_draw_hud then return end
-
-	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) or engine.IsGameUIVisible() or engine.Con_IsVisible() then
+	local current_weapon = plocal:GetPropEntity("m_hActiveWeapon")
+	if not current_weapon then
 		return
 	end
 
-	local lastHeight = 150
-
-	for pos, chat_message in ipairs(chat_messages) do
-		draw.SetFont(chat_font)
-		local str = ""
-		if chat_message.type == "TF_Chat_All" then -- seriously wtf why dont we just have a ChatType.All or something???
-			str = string.format("[%s]: %s", chat_message.player:GetName(), chat_message.message)
-		else
-			str = string.format("(Team) [%s]: %s", chat_message.player:GetName(), chat_message.message)
-		end
-		local textwidth, textheight = draw.GetTextSize(str)
-
-		local x = 30
-		local y = lastHeight + textheight
-
-		--- background
-		draw.Color(255, 255, 255, 255)
-		draw.FilledRect(x - 10, lastHeight + textheight, x + textwidth + 10, lastHeight + textheight + textheight)
-
-		--- fuck this in particular im not gonna draw each word separately that i want to color
-		local msg_color = color[chat_message.player:GetTeamNumber()]
-		draw.Color(msg_color[1], msg_color[2], msg_color[3], msg_color[4])
-		draw.Text(x, y, str)
-		lastHeight = lastHeight + textheight + 5
-
-		if chat_message.tick_to_disappear <= globals.TickCount() then
-			table.remove(chat_messages, pos)
-		end
-	end
-end
-
----@param msg UserMessage
-local function chat_msgs(msg)
-	if msg:GetID() == E_UserMessage.SayText2 then
-		local bf = msg:GetBitBuffer()
-		bf:SetCurBit(8)
-
-		local chatType = bf:ReadString(256)
-		chatType = string.sub(chatType, 2) -- skip a useless character
-		local playerName = bf:ReadString(256)
-		local message = bf:ReadString(256)
-
-		local current_tick = globals.TickCount()
-		local hud_saytext_time = client.GetConVar("hud_saytext_time")
-
-		local players = entities.FindByClass("CTFPlayer")
-		for _, player in pairs(players) do
-			if player:GetName() == playerName then
-				chat_messages[#chat_messages + 1] = {
-					player = player,
-					message = message,
-					tick_to_disappear = current_tick +
-						 (hud_saytext_time * 66),
-					type = chatType
-				}
-			end
-		end
-	end
-end
-
-local function draw_escape_menu()
-	draw.Color(0, 0, 0, 150)
-	draw.FilledRect(0, 0, screenw, screenh)
-
-	--- background
-	alib.objects.window(window.width, window.height, window.x, window.y, "settings")
-
-	--- i wish i could automate this, but for some reason it doesnt work like it should, but hey at least more control :)
-	--- health
-	alib.objects.checkbox(health_checkbox.width, health_checkbox.height, health_checkbox.x + window.x,
-		health_checkbox.y + window.y, health_checkbox.checked)
-	do
-		draw.SetFont(warp_font)
-		local tw, th = draw.GetTextSize("health")
-		draw.Color(255, 255, 255, 255)
-		draw.TextShadow(health_checkbox.x + window.x + health_checkbox.width / 2 - math.floor(tw / 2),
-			health_checkbox.y + window.y + health_checkbox.height / 2 - math.floor(th / 2), "health")
-	end
-
-	--- ammo
-	alib.objects.checkbox(ammo_checkbox.width, ammo_checkbox.height, ammo_checkbox.x + window.x,
-		ammo_checkbox.y + window.y, ammo_checkbox.checked)
-	do
-		draw.SetFont(warp_font)
-		local tw, th = draw.GetTextSize("ammo")
-		draw.Color(255, 255, 255, 255)
-		draw.TextShadow(ammo_checkbox.x + window.x + ammo_checkbox.width / 2 - math.floor(tw / 2),
-			ammo_checkbox.y + window.y + ammo_checkbox.height / 2 - math.floor(th / 2), "ammo")
-	end
-
-	--- crit
-	alib.objects.checkbox(crit_checkbox.width, crit_checkbox.height, crit_checkbox.x + window.x,
-		crit_checkbox.y + window.y, crit_checkbox.checked)
-	do
-		draw.SetFont(warp_font)
-		local tw, th = draw.GetTextSize("crit")
-		draw.Color(255, 255, 255, 255)
-		draw.TextShadow(crit_checkbox.x + window.x + crit_checkbox.width / 2 - math.floor(tw / 2),
-			crit_checkbox.y + window.y + crit_checkbox.height / 2 - math.floor(th / 2), "crit")
-	end
-
-	--- warp
-	alib.objects.checkbox(warp_checkbox.width, warp_checkbox.height, warp_checkbox.x + window.x,
-		warp_checkbox.y + window.y, warp_checkbox.checked)
-	do
-		draw.SetFont(warp_font)
-		local tw, th = draw.GetTextSize("warp")
-		draw.Color(255, 255, 255, 255)
-		draw.TextShadow(warp_checkbox.x + window.x + warp_checkbox.width / 2 - math.floor(tw / 2),
-			warp_checkbox.y + window.y + warp_checkbox.height / 2 - math.floor(th / 2), "warp")
-	end
-
-	--- killfeed
-	alib.objects.checkbox(killfeed_checkbox.width, killfeed_checkbox.height, killfeed_checkbox.x + window.x,
-		killfeed_checkbox.y + window.y, killfeed_checkbox.checked)
-	do
-		draw.SetFont(warp_font)
-		local tw, th = draw.GetTextSize("killfeed")
-		draw.Color(255, 255, 255, 255)
-		draw.TextShadow(killfeed_checkbox.x + window.x + killfeed_checkbox.width / 2 - math.floor(tw / 2),
-			killfeed_checkbox.y + window.y + killfeed_checkbox.height / 2 - math.floor(th / 2), "killfeed")
-	end
-
-	--- chat
-	alib.objects.checkbox(chat_checkbox.width, chat_checkbox.height, chat_checkbox.x + window.x,
-		chat_checkbox.y + window.y, chat_checkbox.checked)
-	do
-		draw.SetFont(warp_font)
-		local tw, th = draw.GetTextSize("chat")
-		draw.Color(255, 255, 255, 255)
-		draw.TextShadow(chat_checkbox.x + window.x + chat_checkbox.width / 2 - math.floor(tw / 2),
-			chat_checkbox.y + window.y + chat_checkbox.height / 2 - math.floor(th / 2), "chat")
-	end
-
-	--- class switcher
-	alib.objects.list(list.width, list.x + window.x, list.y + window.y, list.selected_item_index, list.items)
-end
-
-local last_tick = 0
---- this is bs it doesnt work without doing it manually
-local function mouse_input()
-	if not engine.IsGameUIVisible() and not gui.IsMenuOpen() then return end
-	local state, tick = input.IsButtonPressed(E_ButtonCode.MOUSE_LEFT)
-	if state and tick ~= last_tick then
-		if alib.math.isMouseInside(window, health_checkbox) then
-			health_checkbox.checked = not health_checkbox.checked
-			settings.health = health_checkbox.checked
-		end
-
-		if alib.math.isMouseInside(window, ammo_checkbox) then
-			ammo_checkbox.checked = not ammo_checkbox.checked
-			settings.ammo = ammo_checkbox.checked
-		end
-
-		if alib.math.isMouseInside(window, crit_checkbox) then
-			crit_checkbox.checked = not crit_checkbox.checked
-			settings.crit = crit_checkbox.checked
-		end
-
-		if alib.math.isMouseInside(window, warp_checkbox) then
-			warp_checkbox.checked = not warp_checkbox.checked
-			settings.warp = warp_checkbox.checked
-		end
-
-		if alib.math.isMouseInside(window, killfeed_checkbox) then
-			killfeed_checkbox.checked = not killfeed_checkbox.checked
-			settings.killfeed = killfeed_checkbox.checked
-		end
-
-		if alib.math.isMouseInside(window, chat_checkbox) then
-			chat_checkbox.checked = not chat_checkbox.checked
-			settings.chat = chat_checkbox.checked
-		end
-
-		for i, v in ipairs(list.items) do
-			local is_mouse_inside = alib.math.isMouseInsideItem(window, list, i)
-			if is_mouse_inside and input.IsButtonDown(E_ButtonCode.MOUSE_LEFT) then
-				list.selected_item_index = i
-				client.Command(string.format("join_class %s", v), true)
-			end
-		end
-
-		last_tick = tick
-	end
-end
-
---- load crosshair
-local content = http.Get("https://raw.githubusercontent.com/uosq/lmaobox-luas/refs/heads/main/crosshair.lua")
-filesystem.CreateDirectory("navet custom hud")
-io.output("navet custom hud/crosshair.lua")
-io.write(content)
-io.flush()
-io.close(io.stdout)
-LoadScript("navet custom hud/crosshair.lua")
-callbacks.Register("Unload", function()
-	UnloadScript("navet custom hud/crosshair.lua")
-end)
-
-local function hud_manager()
-	if (gui.GetValue("clean screenshots") == 1 and engine.IsTakingScreenshot()) then -- or engine.IsGameUIVisible() or engine.Con_IsVisible() then
+	if engine.IsTakingScreenshot() and client.GetConVar("cl_drawhud") == 0 then
+		client.SetConVar("cl_drawhud", 1)
 		return
-	elseif engine.IsGameUIVisible() and gui.IsMenuOpen() then
-		input.SetMouseInputEnabled(true)
-		draw_escape_menu()
-	elseif not engine.IsGameUIVisible() then
-		input.SetMouseInputEnabled(false)
-		hud()
 	end
+
+	if engine.IsChatOpen() and client.GetConVar("cl_drawhud") == 0 then
+		client.SetConVar("cl_drawhud", 1)
+		return
+	end
+
+	if engine.IsGameUIVisible() and client.GetConVar("cl_drawhud") == 0 then
+		client.SetConVar("cl_drawhud", 1)
+	end
+
+	if client.GetConVar("cl_drawhud") == 1 then
+		client.SetConVar("cl_drawhud", 0)
+	end
+
+	local screen_w, screen_h = draw.GetScreenSize()
+	local center_x, center_y = screen_w // 2, screen_h // 2
+	local start_y = center_y + 20
+
+	draw.SetFont(font)
+
+	local health = plocal:GetHealth()
+	local max_health = plocal:GetMaxHealth()
+	local health_ratio = health / max_health
+
+	local health_text = string.format(health_unformatted, health, max_health)
+	local health_w, health_h = draw.GetTextSize(health_text)
+
+	if health_ratio >= 0.5 then
+		DrawText({ 163, 190, 140 }, center_x - (health_w // 2), start_y, health_text)
+	else
+		DrawText({ 191, 97, 106 }, center_x - (health_w // 2), start_y, health_text)
+	end
+
+	start_y = start_y + health_h + 5
+
+	if not current_weapon:IsMeleeWeapon() then
+		local is_primary = current_weapon:GetLoadoutSlot() == E_LoadoutSlot.LOADOUT_POSITION_PRIMARY
+		local ammo_datatable = plocal:GetPropDataTableInt("m_iAmmo")
+		local clip1 = current_weapon:GetPropInt("m_iClip1")
+		local primary_clip2, secondary_clip2 = ammo_datatable[2], ammo_datatable[3]
+
+		local ammo_text = ""
+
+		if clip1 ~= -1 and clip1 then
+			ammo_text = is_primary and string.format(ammo_unformatted, clip1, primary_clip2)
+				or string.format(ammo_unformatted, clip1, secondary_clip2)
+		else
+			ammo_text = string.format("%s", primary_clip2)
+		end
+
+		local ammo_w, ammo_h = draw.GetTextSize(ammo_text)
+		DrawText({ 180, 142, 173 }, center_x - (ammo_w // 2), start_y, ammo_text)
+
+		start_y = start_y + ammo_h + 5
+	end
+
+	if plocal:GetPropInt("m_iClass") == E_Character.TF2_Engineer then
+		local ammo_datatable = plocal:GetPropDataTableInt("m_iAmmo")
+		local quantity = ammo_datatable[4]
+		local text = string.format("%i/200", quantity)
+		local metal_w, metal_h = draw.GetTextSize(text)
+
+		DrawText({ 235, 203, 139 }, center_x - (metal_w // 2), start_y, text)
+
+		start_y = start_y + metal_h + 10
+
+		if current_weapon:GetLoadoutSlot() == 3 or current_weapon:GetLoadoutSlot() == 4 then
+			local buildings = { "sentry", "dispenser", "teleporter", "teleporter (e)" }
+
+			local total_size = 0
+
+			for i = 1, 4 do
+				local w = draw.GetTextSize(buildings[i])
+				total_size = (total_size + w) // 1
+			end
+
+			local text_x = center_x - (total_size // 2)
+			local text_y = start_y
+
+			for i = 1, 4 do
+				local text_w, text_h = draw.GetTextSize(buildings[i])
+
+				DrawText(nil, text_x, text_y, buildings[i])
+
+				local number = tostring(i)
+				local number_w, _ = draw.GetTextSize(number) --- fucking stupid
+				local number_x, number_y
+				number_x = text_x + (text_w // 2) - (number_w // 2)
+				number_y = text_y + (text_h // 1) + 5
+
+				DrawText(nil, number_x, number_y, number)
+
+				text_x = text_x + (text_w // 1) + 5
+			end
+		end
+	elseif plocal:GetPropInt("m_iClass") == E_Character.TF2_Spy then
+		local cloak = plocal:GetPropFloat("m_flCloakMeter")
+		local cloak_ratio = cloak / 100 --- 100 is max cloak
+		local width, height = 100, 10
+		local x, y = center_x - (width * 0.5), start_y
+
+		draw.Color(67, 76, 94, 255)
+		draw.FilledRect(x, y, x + width, y + height)
+
+		draw.Color(236, 239, 244, 255)
+		draw.FilledRect(x, y, x + (width * cloak_ratio) // 1, y + height)
+
+		start_y = start_y + y + height + 5
+	elseif plocal:GetPropInt("m_iClass") == E_Character.TF2_Sniper then
+		local width, height = 100, 10
+		local x, y = center_x - (width * 0.5), start_y
+		if plocal:InCond(E_TFCOND.TFCond_Zoomed) then
+			local MACHINA_INDEX = 526
+			local multiplier = current_weapon:GetPropInt("m_Item", "m_iItemDefinitionIndex") == MACHINA_INDEX and 1.15
+				or 1
+			local current_charge = current_weapon:GetPropFloat("SniperRifleLocalData", "m_flChargedDamage")
+			local max_charge = 150 * multiplier
+			local charge_ratio = current_charge / max_charge
+
+			--- sniper charge
+			draw.Color(67, 76, 94, 255)
+			draw.FilledRect(x, y, x + width, y + height)
+
+			draw.Color(236, 239, 244, 255)
+			draw.FilledRect(x, y, x + (width * charge_ratio) // 1, y + height)
+
+			start_y = start_y + height + 5
+		end
+
+		--- jarate
+		local last_firetime =
+			plocal:GetEntityForLoadoutSlot(E_LoadoutSlot.LOADOUT_POSITION_SECONDARY):GetPropFloat("m_flLastFireTime")
+
+		local jarate_ratio = math.min((globals.CurTime() - last_firetime) / 20, 1) --- clamp to max 1
+
+		if plocal:GetPropDataTableInt("m_iAmmo")[5] == 1 then
+			jarate_ratio = 1
+		end
+
+		y = start_y
+
+		draw.Color(67, 76, 94, 255)
+		draw.FilledRect(x, y, x + width, y + height)
+
+		draw.Color(235, 203, 139, 255)
+		draw.FilledRect(x, y, x + (width * jarate_ratio) // 1, y + height)
+
+		start_y = start_y + height + 5
+	elseif plocal:GetPropInt("m_iClass") == E_Character.TF2_Demoman then
+		if current_weapon:GetClass() == "CTFPipebombLauncher" then
+			local width, height, x, y
+			width, height = 100, 10
+			x, y = center_x - (width // 2), start_y
+
+			local MAX_CHARGE_STOCK = 4 --- seconds
+			local MAX_CHARGE_QUICKIE = 1.2 --- seconds
+
+			--- not sure if this works
+			local chosen_max = current_weapon:AttributeHookFloat("sticky_arm_time") == 1 and MAX_CHARGE_STOCK
+				or MAX_CHARGE_QUICKIE
+
+			local charge_ratio = (
+				globals.CurTime() - current_weapon:GetPropFloat("PipebombLauncherLocalData", "m_flChargeBeginTime")
+			) / chosen_max
+
+			if charge_ratio > chosen_max then
+				charge_ratio = 0
+			end
+
+			draw.Color(67, 76, 94, 255)
+			draw.FilledRect(x, y, x + width, y + height)
+
+			draw.Color(236, 239, 244, 255)
+			draw.FilledRect(x, y, x + (width * charge_ratio) // 1, y + height)
+
+			start_y = start_y + height + 5
+		end
+
+		local sticky_count = plocal
+			:GetEntityForLoadoutSlot(E_LoadoutSlot.LOADOUT_POSITION_SECONDARY)
+			:GetPropInt("PipebombLauncherLocalData", "m_iPipebombCount")
+
+		local sticky_text = tostring(sticky_count)
+		local sticky_w, sticky_h = draw.GetTextSize(sticky_text)
+
+		DrawText(nil, center_x - (sticky_w // 2), start_y, sticky_text)
+
+		start_y = start_y + sticky_h + 5
+	end
+
+	DrawCrosshair(center_x, center_y)
 end
 
-callbacks.Register("DispatchUserMessage", chat_msgs)
-callbacks.Register("Draw", draw_chat)
-
-callbacks.Register("Draw", hud_manager)
-callbacks.Register("CreateMove", mouse_input)
-
-callbacks.Register("FireGameEvent", killfeed)
-callbacks.Register("Draw", draw_killfeed)
-
-callbacks.Register("Unload", function()
-	client.Command("cl_drawhud 1", true)
-	input.SetMouseInputEnabled(false)
-	gui.SetValue("double tap indicator size", 3)
-	gui.SetValue("crit hack indicator size", 3)
-end)
+callbacks.Register("Draw", Draw)
