@@ -53,15 +53,22 @@ local function Draw()
 	if engine.IsTakingScreenshot() and client.GetConVar("cl_drawhud") == 0 then
 		client.SetConVar("cl_drawhud", 1)
 		return
+	elseif engine.IsTakingScreenshot() then
+		return
 	end
 
 	if engine.IsChatOpen() and client.GetConVar("cl_drawhud") == 0 then
 		client.SetConVar("cl_drawhud", 1)
 		return
+	elseif engine.IsChatOpen() then
+		return
 	end
 
 	if engine.IsGameUIVisible() and client.GetConVar("cl_drawhud") == 0 then
 		client.SetConVar("cl_drawhud", 1)
+		return
+	elseif engine.IsGameUIVisible() then
+		return
 	end
 
 	if client.GetConVar("cl_drawhud") == 1 then
