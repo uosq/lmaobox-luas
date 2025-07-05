@@ -1,6 +1,7 @@
 --- made by navet
 
-local font = draw.CreateFont("TF2 BUILD", 16, 600)
+local font_size = 16
+local font = draw.CreateFont("TF2 BUILD", font_size, 600)
 
 local health_unformatted = "%s / %s"
 local ammo_unformatted = "%s / %s"
@@ -104,6 +105,17 @@ local function Draw()
 			start_y = start_y + text_h + 5
 		end
 
+		local resources = entities.GetPlayerResources()
+		if resources then
+			local lp_res = resources:GetPropDataTableFloat("m_flNextRespawnTime")[
+				plocal:GetIndex() + 1 --[[ wtf? ]]
+			]
+			local text = string.format("respawn in %i seconds", (lp_res - globals.CurTime()) // 1)
+			local text_w = draw.GetTextSize(text)
+			DrawText(nil, center_x - (text_w // 2), start_y, text)
+			start_y = start_y + font_size + 5
+		end
+
 		return
 	end
 
@@ -144,10 +156,50 @@ local function Draw()
 		start_y = start_y + ammo_h + 5
 	end
 
+	--- cri hack bar
+	if current_weapon:CanRandomCrit() then
+		---  stuff "borrowed" from the docs
+		local critChance = current_weapon:GetCritChance()
+		local dmgStats = current_weapon:GetWeaponDamageStats()
+		local totalDmg = dmgStats["total"]
+		local criticalDmg = dmgStats["critical"]
+
+		-- (the + 0.1 is always added to the comparsion)
+		local cmpCritChance = critChance + 0.1
+		---
+
+		local crit_ratio = 0
+
+		-- If we are allowed to crit
+		if cmpCritChance > current_weapon:CalcObservedCritChance() then
+			crit_ratio = current_weapon:GetCritTokenBucket() / 1000
+			local x, y, width, height
+			width, height = 100, 10
+			x, y = center_x - (width // 2), start_y
+
+			draw.Color(67, 76, 94, 255)
+			draw.FilledRect(x, y, x + width, y + height)
+
+			draw.Color(236, 239, 244, 255)
+			draw.FilledRect(x, y, x + (width * crit_ratio) // 1, y + height)
+			start_y = start_y + height + 5
+		else --Figure out how much damage we need
+			local requiredTotalDamage = (criticalDmg * (2.0 * cmpCritChance + 1.0)) / cmpCritChance / 3.0
+			local requiredDamage = requiredTotalDamage - totalDmg
+			local text = string.format("Required damage: %.0f", requiredDamage)
+			local tw = draw.GetTextSize(text)
+
+			DrawText(nil, center_x - (tw // 2), start_y, text)
+			start_y = start_y + font_size + 5
+		end
+
+		---
+	end
+
 	if plocal:GetPropInt("m_iClass") == E_Character.TF2_Engineer then
 		local ammo_datatable = plocal:GetPropDataTableInt("m_iAmmo")
 		local quantity = ammo_datatable[4]
-		local text = string.format("%i/200", quantity)
+		local text = string.format("%i / 200", quantity)
 		local metal_w, metal_h = draw.GetTextSize(text)
 
 		DrawText({ 235, 203, 139 }, center_x - (metal_w // 2), start_y, text)
@@ -155,7 +207,11 @@ local function Draw()
 		start_y = start_y + metal_h + 10
 
 		if current_weapon:GetLoadoutSlot() == 3 or current_weapon:GetLoadoutSlot() == 4 then
+			--- really stupid
+			--- and not memory efficient
+			--- but we have modern hardware with 4+ gb of ram so fuck it
 			local buildings = { "sentry", "dispenser", "teleporter", "teleporter exit" }
+			local has_buildings = { false, false, false, false }
 
 			local total_size = 0
 
@@ -167,21 +223,61 @@ local function Draw()
 			local text_x = center_x - (total_size // 2)
 			local text_y = start_y
 
+			local plocal_index = plocal:GetIndex()
+
+			for _, sentry in pairs(entities.FindByClass("CObjectSentrygun")) do
+				local builder = sentry:GetPropEntity("m_hBuilder")
+				if builder and builder:GetIndex() == plocal_index then
+					has_buildings[1] = true
+					break
+				end
+			end
+
+			for _, dispenser in pairs(entities.FindByClass("CObjectDispenser")) do
+				local builder = dispenser:GetPropEntity("m_hBuilder")
+				if builder and builder:GetIndex() == plocal_index then
+					has_buildings[2] = true
+					break
+				end
+			end
+
+			for _, tele in pairs(entities.FindByClass("CObjectTeleporter")) do
+				local builder = tele:GetPropEntity("m_hBuilder")
+				if builder and builder:GetIndex() == plocal_index then
+					local exit = tele:GetPropInt("m_iObjectMode") == 1
+					if exit then
+						has_buildings[4] = true
+					else
+						has_buildings[3] = true
+					end
+				end
+			end
+
 			for i = 1, 4 do
 				local text_w, text_h = draw.GetTextSize(buildings[i])
 
 				DrawText(nil, text_x, text_y, buildings[i])
 
 				local number = tostring(i)
-				local number_w, _ = draw.GetTextSize(number) --- fucking stupid
+				local number_w, number_h = draw.GetTextSize(number) --- fucking stupid
 				local number_x, number_y
 				number_x = text_x + (text_w // 2) - (number_w // 2)
 				number_y = text_y + (text_h // 1) + 5
 
 				DrawText(nil, number_x, number_y, number)
 
+				if has_buildings[i] then
+					local w, h = draw.GetTextSize("(built)")
+					local x, y
+					x = text_x + (text_w // 2) - (w // 2)
+					y = number_y + number_h + 5
+					DrawText(nil, x, y, "(built)")
+				end
+
 				text_x = text_x + (text_w // 1) + 5
 			end
+
+			start_y = start_y + font_size + 5
 		end
 	elseif plocal:GetPropInt("m_iClass") == E_Character.TF2_Spy then
 		local cloak = plocal:GetPropFloat("m_flCloakMeter")
@@ -350,6 +446,100 @@ local function Draw()
 			start_y = start_y + height + 5
 		end
 	end
+
+	--- info "panel"
+
+	local options = {
+		"aim bot",
+		"backtrack",
+		"anti aim",
+		"nospread",
+		"norecoil",
+		"anti backstab",
+		"thirdperson",
+	}
+
+	--- extra options not in the gui
+	local extras = 2
+
+	if gui.GetValue("fake latency") == 1 and gui.GetValue("backtrack") == 1 then
+		extras = extras + 1
+	end
+
+	if gui.GetValue("fake lag") == 1 then
+		extras = extras + 1
+	end
+
+	--- calculate the desired y first
+	local needed_size = 0
+	local counter = 0
+
+	for i = 1, #options + extras do
+		if options[i] then
+			local value = gui.GetValue(options[i])
+			if value == 1 then
+				local _, h = draw.GetTextSize(options[i])
+				needed_size = needed_size + h
+				counter = counter + 1
+			end
+		else
+			needed_size = needed_size + font_size
+			counter = counter + 1
+		end
+	end
+
+	local x = 10
+	start_y = screen_h - needed_size - 10
+	for i = 1, #options do
+		if gui.GetValue(options[i]) == 1 then
+			DrawText(nil, x, start_y, options[i])
+			start_y = start_y + ((needed_size / counter) // 1)
+		end
+	end
+
+	--[[- choked commands
+	local choked_text = string.format("choked commands: %i", clientstate:GetChokedCommands())
+	local tw = draw.GetTextSize(choked_text)
+	DrawText(nil, x, start_y, choked_text)
+	start_y = start_y + font_size
+	---]]
+
+	--- fake latency
+	local fake_latency = false
+	if gui.GetValue("fake latency") == 1 and gui.GetValue("backtrack") == 1 then
+		local latency_text = string.format("fake latency: %i", gui.GetValue("fake latency value (ms)"))
+		DrawText(nil, x, start_y, latency_text)
+
+		start_y = start_y + font_size
+		fake_latency = true
+	end
+	---
+
+	if gui.GetValue("fake lag") == 1 then
+		local lag_text = string.format(
+			"fake lag: %i (Choked: %i)",
+			gui.GetValue("fake lag value (ms)") + 15,
+			clientstate:GetChokedCommands()
+		)
+		DrawText(nil, x, start_y, lag_text)
+		start_y = start_y + font_size
+	end
+
+	--- latency
+	local netchan = clientstate:GetNetChannel()
+	if netchan then
+		local real_ping = (
+			(netchan:GetLatency(E_Flows.FLOW_OUTGOING) + netchan:GetLatency(E_Flows.FLOW_INCOMING)) * 1000
+		) - (fake_latency and math.min(gui.GetValue("fake latency value (ms)"), 800) or 0)
+
+		DrawText(nil, x, start_y, string.format("real ping: %.0f", real_ping))
+		start_y = start_y + font_size
+
+		local score_ping = netchan:GetLatency(E_Flows.FLOW_OUTGOING) + netchan:GetLatency(E_Flows.FLOW_INCOMING)
+		DrawText(nil, x, start_y, string.format("scoreboard ping: %.0f", score_ping * 1000))
+		start_y = start_y + font_size
+	end
+	---
 
 	DrawCrosshair(current_weapon, center_x, center_y)
 end
