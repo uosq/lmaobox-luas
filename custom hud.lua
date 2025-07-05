@@ -23,8 +23,13 @@ local function DrawText(color, x, y, text)
 	draw.Text(x, y, text)
 end
 
-local function DrawCrosshair(center_x, center_y)
+local function DrawCrosshair(current_weapon, center_x, center_y)
 	local size = 8
+	local spread = current_weapon:GetWeaponSpread()
+	if spread then
+		size = size * (1 + (spread * 10)) // 1
+	end
+
 	draw.Color(136, 192, 208, 255)
 	draw.Line(center_x, center_y, center_x + size, center_y) -- x--
 	draw.Line(center_x - size, center_y, center_x, center_y) -- --x
@@ -128,7 +133,7 @@ local function Draw()
 		start_y = start_y + metal_h + 10
 
 		if current_weapon:GetLoadoutSlot() == 3 or current_weapon:GetLoadoutSlot() == 4 then
-			local buildings = { "sentry", "dispenser", "teleporter", "teleporter (e)" }
+			local buildings = { "sentry", "dispenser", "teleporter", "teleporter exit" }
 
 			local total_size = 0
 
@@ -194,10 +199,12 @@ local function Draw()
 		local last_firetime =
 			plocal:GetEntityForLoadoutSlot(E_LoadoutSlot.LOADOUT_POSITION_SECONDARY):GetPropFloat("m_flLastFireTime")
 
-		local jarate_ratio = math.min((globals.CurTime() - last_firetime) / 20, 1) --- clamp to max 1
+		local jarate_ratio = 0
 
 		if plocal:GetPropDataTableInt("m_iAmmo")[5] == 1 then
 			jarate_ratio = 1
+		else
+			jarate_ratio = math.min((globals.CurTime() - last_firetime) / 20, 1) --- clamp to max 1
 		end
 
 		y = start_y
@@ -249,9 +256,62 @@ local function Draw()
 		DrawText(nil, center_x - (sticky_w // 2), start_y, sticky_text)
 
 		start_y = start_y + sticky_h + 5
+	elseif plocal:GetPropInt("m_iClass") == E_Character.TF2_Medic then
+		local medigun = plocal:GetEntityForLoadoutSlot(E_LoadoutSlot.LOADOUT_POSITION_SECONDARY)
+		local charge_level = medigun:GetPropFloat("LocalTFWeaponMedigunData", "m_flChargeLevel") --- 0 to max_charge
+		local max_charge = medigun:AttributeHookFloat("mult_medigun_uberchargerate")
+		local charge_ratio = charge_level / max_charge
+		local width, height, x, y
+		width, height = 100, 10
+		x, y = center_x - (width * 0.5), start_y
+
+		draw.Color(67, 76, 94, 255)
+		draw.FilledRect(x, y, x + width, y + height)
+
+		if charge_ratio >= 1 then
+			draw.Color(143, 188, 187, 255)
+		else
+			draw.Color(236, 239, 244, 255)
+		end
+
+		draw.FilledRect(x, y, x + (width * charge_ratio) // 1, y + height)
+
+		start_y = start_y + height + 5
+
+		if
+			current_weapon:GetLoadoutSlot() == E_LoadoutSlot.LOADOUT_POSITION_SECONDARY
+			and current_weapon:GetPropBool("m_bHealing")
+		then
+			local heal_target = current_weapon:GetPropEntity("m_hHealingTarget")
+			if heal_target then
+				y = start_y
+				local heal_ratio = 0
+				local over_ratio = 0
+
+				if (heal_target:GetHealth() / heal_target:GetMaxHealth()) > 1 then
+					over_ratio = (heal_target:GetHealth() - heal_target:GetMaxHealth())
+						/ (heal_target:GetMaxBuffedHealth() - heal_target:GetMaxHealth())
+
+					heal_ratio = math.min(heal_target:GetHealth() / heal_target:GetMaxHealth(), 1)
+				else
+					heal_ratio = heal_target:GetHealth() / heal_target:GetMaxHealth()
+				end
+
+				draw.Color(67, 76, 94, 255)
+				draw.FilledRect(x, y, x + width, y + height)
+
+				draw.Color(236, 239, 244, 255)
+				draw.FilledRect(x, y, x + (width * heal_ratio) // 1, y + height)
+
+				draw.Color(136, 192, 208, 255)
+				draw.FilledRect(x, y, x + (width * over_ratio) // 1, y + height)
+
+				start_y = start_y + height + 5
+			end
+		end
 	end
 
-	DrawCrosshair(center_x, center_y)
+	DrawCrosshair(current_weapon, center_x, center_y)
 end
 
 callbacks.Register("Draw", Draw)
