@@ -1,5 +1,26 @@
 --- made by navet
 
+--- settings
+--- (aka stuff you can change without risking breaking the script)
+
+--- goes from priority 1 to 10
+local priorities = {
+	[-1] = "friend", -- -1 (friend)
+	--- gap here lol
+	[1] = "1", --- 1
+	[2] = "2", --- 2
+	[3] = "3", --- 3
+	[4] = "4", --- 4
+	[5] = "5", --- 5
+	[6] = "6", --- 6
+	[7] = "noob", --- 7
+	[8] = "closet", --- 8
+	[9] = "bot", --- 9
+	[10] = "cheater", --- 10
+}
+
+---
+
 local font_size = 16
 local font = draw.CreateFont("TF2 BUILD", font_size, 600)
 
@@ -8,6 +29,8 @@ local ammo_unformatted = "%s / %s"
 
 ---@type table<number, {player: Entity, message: string, tick_to_disappear: number, type: "TF_Chat_All"|"TF_Chat_Team"}>
 local chat_messages = {}
+
+local buffer = BitBuffer()
 
 ---@alias RGB {[1]: integer, [2]: integer, [3]: integer}
 
@@ -55,6 +78,8 @@ local function chat_msgs(msg)
 		local current_tick = globals.TickCount()
 		local hud_saytext_time = client.GetConVar("hud_saytext_time")
 
+		draw.SetFont(font)
+
 		local players = entities.FindByClass("CTFPlayer")
 		for _, player in pairs(players) do
 			if player:GetName() == playerName then
@@ -71,87 +96,111 @@ end
 
 --- i will not lie, i asked AI to do this
 --- but only this function was made by AI
---- the other ones were made by me
+--- the other ones were made by me (thats why they are shit LOL)
 ---@param x integer
 ---@param y integer
 ---@param text string
----@param lineHeight integer|nil Optional line height (defaults to font height + 2)
-local function DrawColoredText(x, y, text, lineHeight)
-	lineHeight = lineHeight or 18 -- Default line height, adjust as needed
+---@param maxWidth integer
+---@param drawNow boolean
+---@return integer
+local function DrawColoredText(x, y, text, maxWidth, drawNow)
+	local defaultColor = { 255, 255, 255, 255 }
+	local lineHeight = font_size + 2
+	local currentColor = defaultColor
+	local cursorX = x
+	local cursorY = y
+	local usedHeight = lineHeight
 
-	-- Split text by newlines first
-	local lines = {}
-	for line in text:gmatch("([^\n]*)\n?") do
-		if line ~= "" or text:match("\n") then
-			table.insert(lines, line)
+	draw.SetFont(font)
+
+	local function parseTag(s)
+		local r, g, b, a = 255, 255, 255, 255
+		if #s == 6 then
+			r = tonumber(s:sub(1, 2), 16) or 255
+			g = tonumber(s:sub(3, 4), 16) or 255
+			b = tonumber(s:sub(5, 6), 16) or 255
+		elseif #s == 8 then
+			r = tonumber(s:sub(1, 2), 16) or 255
+			g = tonumber(s:sub(3, 4), 16) or 255
+			b = tonumber(s:sub(5, 6), 16) or 255
+			a = tonumber(s:sub(7, 8), 16) or 255
+		end
+		return r, g, b, a
+	end
+
+	local segments = {}
+	local i = 1
+	while i <= #text do
+		local tagStart, tagEnd, hex = text:find("{#([%x]+)}", i)
+		if tagStart then
+			if tagStart > i then
+				table.insert(segments, { color = currentColor, text = text:sub(i, tagStart - 1) })
+			end
+			currentColor = { parseTag(hex) }
+			i = tagEnd + 1
+		else
+			table.insert(segments, { color = currentColor, text = text:sub(i) })
+			break
 		end
 	end
 
-	-- Handle case where there are no newlines
-	if #lines == 0 then
-		lines = { text }
-	end
+	for _, seg in ipairs(segments) do
+		local color = seg.color
+		local chunk = seg.text
 
-	-- Draw each line
-	for lineIndex, line in ipairs(lines) do
-		local currentX = x
-		local currentY = y + (lineIndex - 1) * lineHeight
-		local defaultColor = { 255, 255, 255, 255 }
-		local lastIndex = 1
-
-		-- Pattern to match color tags like {#fcba03} or {#fcba03ff}
-		for startPos, colorTag, hex, endPos in line:gmatch("()({#([%x]+)})()") do
-			-- Draw preceding plain text (if any)
-			if startPos > lastIndex then
-				local plainText = line:sub(lastIndex, startPos - 1)
-				draw.Color(table.unpack(defaultColor))
-				draw.Text(currentX, currentY, plainText)
-				currentX = currentX + draw.GetTextSize(plainText)
+		while #chunk > 0 do
+			local word = chunk:match("^%S+%s*") or chunk
+			if not word or word == "" then
+				break
 			end
 
-			-- hex -> RGBA
-			local r, g, b, a = 255, 255, 255, 255
-			if #hex == 6 then
-				r = tonumber(hex:sub(1, 2), 16) or 255
-				g = tonumber(hex:sub(3, 4), 16) or 255
-				b = tonumber(hex:sub(5, 6), 16) or 255
-			elseif #hex == 8 then
-				r = tonumber(hex:sub(1, 2), 16) or 255
-				g = tonumber(hex:sub(3, 4), 16) or 255
-				b = tonumber(hex:sub(5, 6), 16) or 255
-				a = tonumber(hex:sub(7, 8), 16) or 255
-			end
+			local wordW = draw.GetTextSize(word)
 
-			-- update lastIndex to skip the color tag
-			lastIndex = endPos
-
-			-- find the next color tag or end of string to determine colored text length
-			local nextTagStart = line:find("{#", lastIndex)
-			local coloredText
-			if nextTagStart then
-				coloredText = line:sub(lastIndex, nextTagStart - 1)
+			if cursorX + wordW > x + maxWidth then
+				-- Too wide for line, need to split it further by characters
+				for c in word:gmatch(".") do
+					local charW = draw.GetTextSize(c)
+					if cursorX + charW > x + maxWidth then
+						cursorX = x
+						cursorY = cursorY + lineHeight
+						usedHeight = usedHeight + lineHeight
+					end
+					if drawNow then
+						draw.Color(table.unpack(color))
+						draw.Text(cursorX, cursorY, c)
+					end
+					cursorX = cursorX + charW
+				end
 			else
-				coloredText = line:sub(lastIndex)
+				if drawNow then
+					draw.Color(table.unpack(color))
+					draw.Text(cursorX, cursorY, word)
+				end
+				cursorX = cursorX + wordW
 			end
 
-			-- draw the colored text
-			if coloredText and coloredText ~= "" then
-				draw.Color(r, g, b, a)
-				draw.Text(currentX, currentY, coloredText)
-				currentX = currentX + draw.GetTextSize(coloredText)
-				lastIndex = lastIndex + #coloredText
-			end
-		end
-
-		-- draw any remaining plain text on this line
-		if lastIndex <= #line then
-			local remaining = line:sub(lastIndex)
-			if remaining ~= "" then
-				draw.Color(table.unpack(defaultColor))
-				draw.Text(currentX, currentY, remaining)
+			chunk = chunk:sub(#word + 1)
+			if chunk == "" then
+				break
 			end
 		end
 	end
+
+	return usedHeight
+end
+
+local function CleanChatMessages()
+	local current_tick = globals.TickCount()
+	local new_messages = {}
+
+	for i = 1, #chat_messages do
+		local msg = chat_messages[i]
+		if msg.tick_to_disappear > current_tick then
+			new_messages[#new_messages + 1] = msg
+		end
+	end
+
+	chat_messages = new_messages
 end
 
 local function DrawChat()
@@ -162,9 +211,9 @@ local function DrawChat()
 	local screen_w, screen_h = draw.GetScreenSize()
 	local x, y, width, height
 	local margin = 15
-	width, height = 400, 250
+	width, height = 500, 400
 	x = screen_w - width - margin
-	y = (screen_h * 0.75) // 1
+	y = (screen_h * 0.6) // 1
 
 	draw.Color(76, 86, 106, 200)
 	draw.FilledRect(x, y - 25, x + width, y)
@@ -184,23 +233,43 @@ local function DrawChat()
 
 	local start_y = y + 3
 
-	for i, msg in pairs(chat_messages) do
-		if msg.tick_to_disappear <= globals.TickCount() then
-			chat_messages[i] = nil
-		end
-	end
+	CleanChatMessages()
 
 	for i, msg in pairs(chat_messages) do
 		local color = nil
 
-		if msg.player:GetTeamNumber() == 2 then
+		if msg.player:GetTeamNumber() == 3 then
 			color = "#88c0d0"
 		else
 			color = "#bf616a"
 		end
 
-		DrawColoredText(x + 3, start_y, string.format("{%s}%s{#e5e9f0}: %s", color, msg.player:GetName(), msg.message))
-		start_y = start_y + font_size + 5
+		--- piss color: #ebcb8b
+		if playerlist.GetPriority(msg.player) > 0 then
+			local full_msg = string.format(
+				"[{#ebcb8b}%s{#e5e9f0}]{%s}%s{#e5e9f0}: %s",
+				priorities[playerlist.GetPriority(msg.player)],
+				color,
+				msg.player:GetName(),
+				msg.message
+			)
+			local height_used = DrawColoredText(x + 3, start_y, full_msg, width - 6, true)
+			start_y = start_y + height_used + 2
+		elseif playerlist.GetPriority(msg.player) == -1 then
+			local full_msg = string.format(
+				"[{#a3be8c}%s{#e5e9f0}]{%s}%s{#e5e9f0}: %s",
+				priorities[-1],
+				color,
+				msg.player:GetName(),
+				msg.message
+			)
+			local height_used = DrawColoredText(x + 3, start_y, full_msg, width - 6, true)
+			start_y = start_y + height_used + 2
+		else
+			local full_msg = string.format("{%s}%s{#e5e9f0}: %s", color, msg.player:GetName(), msg.message)
+			local height_used = DrawColoredText(x + 3, start_y, full_msg, width - 6, true)
+			start_y = start_y + height_used + 2
+		end
 	end
 end
 
@@ -254,6 +323,12 @@ local function Draw()
 		client.SetConVar("cl_drawhud", 0)
 	end
 
+	--- somehow Lua is complaining that i am comparing a string to be less  or equal to 0
+	--- wtf
+	if gui.GetValue("crit hack") ~= 0 and gui.GetValue("crit hack indicator size") > 0 then
+		gui.SetValue("crit hack indicator size", 0)
+	end
+
 	local screen_w, screen_h = draw.GetScreenSize()
 	local center_x, center_y = screen_w // 2, screen_h // 2
 
@@ -281,7 +356,7 @@ local function Draw()
 		local resources = entities.GetPlayerResources()
 		if resources then
 			local lp_res = resources:GetPropDataTableFloat("m_flNextRespawnTime")[
-				plocal:GetIndex() + 1 --[[ wtf? ]]
+				plocal:GetIndex() + 1 --[[ wtf? is this because 1 is CWorld? not sure ]]
 			]
 			local text = string.format("respawn in %i seconds", (lp_res - globals.CurTime()) // 1)
 			local text_w = draw.GetTextSize(text)
@@ -361,7 +436,7 @@ local function Draw()
 		else --Figure out how much damage we need
 			local requiredTotalDamage = (criticalDmg * (2.0 * cmpCritChance + 1.0)) / cmpCritChance / 3.0
 			local requiredDamage = requiredTotalDamage - totalDmg
-			local text = string.format("Required damage: %.0f", requiredDamage)
+			local text = string.format("required damage: %.0f", requiredDamage)
 			local tw = draw.GetTextSize(text)
 
 			DrawText(nil, center_x - (tw // 2), start_y, text)
@@ -703,15 +778,13 @@ local function Draw()
 	--- latency
 	local netchan = clientstate:GetNetChannel()
 	if netchan then
-		local real_ping = (
-			(netchan:GetLatency(E_Flows.FLOW_OUTGOING) + netchan:GetLatency(E_Flows.FLOW_INCOMING)) * 1000
-		) - (fake_latency and math.min(gui.GetValue("fake latency value (ms)"), 800) or 0)
+		local score_ping = netchan:GetLatency(E_Flows.FLOW_OUTGOING) + netchan:GetLatency(E_Flows.FLOW_INCOMING) * 1000
+		local real_ping = score_ping - (fake_latency and math.min(gui.GetValue("fake latency value (ms)"), 800) or 0)
 
 		DrawText(nil, x, start_y, string.format("real ping: %.0f", real_ping))
 		start_y = start_y + font_size
 
-		local score_ping = netchan:GetLatency(E_Flows.FLOW_OUTGOING) + netchan:GetLatency(E_Flows.FLOW_INCOMING)
-		DrawText(nil, x, start_y, string.format("scoreboard ping: %.0f", score_ping * 1000))
+		DrawText(nil, x, start_y, string.format("scoreboard ping: %.0f", score_ping))
 		start_y = start_y + font_size
 	end
 	---
@@ -719,5 +792,40 @@ local function Draw()
 	DrawCrosshair(current_weapon, center_x, center_y)
 end
 
-callbacks.Register("Draw", Draw)
-callbacks.Register("DispatchUserMessage", chat_msgs)
+---@param msg NetMessage
+local function SendNetMsg(msg)
+	if msg:GetType() == 5 then --- NET_SetConVar
+		buffer:SetCurBit(0)
+		msg:WriteToBitBuffer(buffer)
+
+		buffer:SetCurBit(6)
+		local numvars = buffer:ReadInt(4) --- not accurate, tf2 reads with ReadByte, but it gives a bunch of garbage data with it
+
+		for i = 1, numvars do
+			local name = buffer:ReadString(256)
+			if name == "cl_drawhud" then
+				buffer:WriteString("1") --- change the value to be 1
+			end
+		end
+
+		buffer:SetCurBit(6)
+		msg:ReadFromBitBuffer(buffer)
+
+		buffer:SetCurBit(0)
+	end
+
+	return true
+end
+
+local function Unload()
+	callbacks.Unregister("Draw", "luahud draw")
+	callbacks.Unregister("DispatchUserMessage", "luahud usermsg")
+	callbacks.Unregister("SendNetMsg", "luahud netmsg")
+	client.SetConVar("cl_drawhud", 1)
+	buffer:Delete()
+end
+
+callbacks.Register("SendNetMsg", "luahud netmsg", SendNetMsg)
+callbacks.Register("Draw", "luahud draw", Draw)
+callbacks.Register("DispatchUserMessage", "luahud usermsg", chat_msgs)
+callbacks.Register("Unload", Unload)
