@@ -53,27 +53,31 @@ local function Detonate(can_explode, cmd, plocal, sticky)
 		)
 
 		cmd.viewangles = angles
-
-		--engine.SetViewAngles(EulerAngles(angles:Unpack()))
 	end
 end
 
-local function VisCheckEntity(sticky, entity, Is_plocal)
-	if Is_plocal and not vischeck then
+local function VisCheckEntity(sticky, entity, plocalteam)
+	if not vischeck then
 		return true
 	end
 
-	if not sticky or not sticky:IsValid() then
+	if sticky:IsValid() == false or entity:IsValid() == false then
 		return false
 	end
 
-	if not entity or not entity:IsValid() then
-		return false
-	end
+	local trace = engine.TraceLine(
+		sticky:GetAbsOrigin(),
+		entity:GetAbsOrigin(),
+		MASK_SHOT_BRUSHONLY,
+		function(ent, contentsMask)
+			if ent:GetIndex() == sticky:GetIndex() then
+				return false
+			end
+			return ent:GetTeamNumber() == plocalteam
+		end
+	)
 
-	local trace = engine.TraceLine(sticky:GetAbsOrigin(), entity:GetAbsOrigin(), MASK_SHOT_BRUSHONLY)
-
-	if trace and trace.entity:GetIndex() == entity:GetIndex() and trace.fraction >= 0.1 then
+	if trace and trace.fraction == 1 then
 		return true
 	end
 
@@ -101,6 +105,39 @@ local function Run(cmd)
 	local stickies = entities.FindByClass("CTFGrenadePipebombProjectile")
 	local players = entities.FindByClass("CTFPlayer")
 
+	-- combine all valid target entities
+	local targets = {}
+	for _, ent in pairs(players) do
+		if ent:GetTeamNumber() ~= plocal:GetTeamNumber() then
+			table.insert(targets, ent)
+		end
+	end
+
+	if gui.GetValue("aim sentry") == 1 then
+		local sentries = entities.FindByClass("CObjectSentrygun")
+		for _, ent in pairs(sentries) do
+			if ent:GetTeamNumber() ~= plocal:GetTeamNumber() then
+				table.insert(targets, ent)
+			end
+		end
+	end
+
+	if gui.GetValue("aim other buildings") == 1 then
+		local dispensers = entities.FindByClass("CObjectDispenser")
+		local teleporters = entities.FindByClass("CObjectTeleporter")
+		for _, ent in pairs(dispensers) do
+			if ent:GetTeamNumber() ~= plocal:GetTeamNumber() then
+				table.insert(targets, ent)
+			end
+		end
+
+		for _, ent in pairs(teleporters) do
+			if ent:GetTeamNumber() ~= plocal:GetTeamNumber() then
+				table.insert(targets, ent)
+			end
+		end
+	end
+
 	local plocalteam = plocal:GetTeamNumber()
 	local plocalindex = plocal:GetIndex()
 	local plocalpos = nil
@@ -111,13 +148,14 @@ local function Run(cmd)
 
 	local can_explode = true
 
-	for _, player in pairs(players) do
+	for _, target in pairs(targets) do
 		if
-			can_explode
-			and not player:IsDormant()
-			and player:IsAlive()
-			and player:GetTeamNumber() ~= plocalteam
-			and not player:InCond(E_TFCOND.TFCond_Cloaked)
+			target
+			and can_explode
+			and not target:IsDormant()
+			and target:GetHealth() > 0
+			and target:GetTeamNumber() ~= plocalteam
+			and not target:InCond(E_TFCOND.TFCond_Cloaked)
 		then
 			for _, sticky in pairs(stickies) do
 				if
@@ -131,13 +169,13 @@ local function Run(cmd)
 							local pos = sticky:GetAbsOrigin()
 							local radius = sticky:GetPropFloat("m_DmgRadius")
 
-							local playerpos = player:GetAbsOrigin()
+							local playerpos = target:GetAbsOrigin()
 							local distance = math.abs((pos - playerpos):Length())
 
 							if can_explode and distance <= radius and explosion_tick == nil then
 								local settick = false
 								if vischeck then
-									if VisCheckEntity(sticky, player) then
+									if VisCheckEntity(sticky, target, plocalteam) then
 										SetDetonateTick(cmd)
 										settick = true
 									end
@@ -156,8 +194,8 @@ local function Run(cmd)
 							end
 
 							if not self_explode and plocalpos then
-								local distance = math.abs((pos - plocalpos):Length())
-								if distance <= radius and (VisCheckEntity(sticky, plocalpos, true)) then
+								distance = math.abs((pos - plocalpos):Length())
+								if distance <= radius and (VisCheckEntity(sticky, plocalpos, plocalteam)) then
 									can_explode = false
 									explosion_tick = nil
 								end

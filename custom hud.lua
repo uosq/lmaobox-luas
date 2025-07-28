@@ -273,6 +273,10 @@ local function DrawChat()
 	end
 end
 
+local function DrawDebugInfo()
+	DrawText(nil, 10, 10, "wip - latest commit: f28296774dce2036016779321de878ed48d4e860")
+end
+
 local function Draw()
 	if client.GetConVar("_cl_classmenuopen") == 1 then
 		if client.GetConVar("cl_drawhud") == 0 then
@@ -367,7 +371,7 @@ local function Draw()
 		return
 	end
 
-	DrawChat()
+	--DrawChat()
 
 	local start_y = center_y + 20
 	local health = plocal:GetHealth()
@@ -789,6 +793,7 @@ local function Draw()
 	end
 	---
 
+	DrawDebugInfo()
 	DrawCrosshair(current_weapon, center_x, center_y)
 end
 
@@ -827,5 +832,5 @@ end
 
 callbacks.Register("SendNetMsg", "luahud netmsg", SendNetMsg)
 callbacks.Register("Draw", "luahud draw", Draw)
-callbacks.Register("DispatchUserMessage", "luahud usermsg", chat_msgs)
+--callbacks.Register("DispatchUserMessage", "luahud usermsg", chat_msgs)
 callbacks.Register("Unload", Unload)
