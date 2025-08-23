@@ -1,15 +1,19 @@
+--- made by navet
+
+--- settings
+local char = "*" --- the snowflakes, change them to whatever you want (letter or number)
 local only_on_menu = false
 local rainbow_balls = false      --- guaranteed rainbow snowflakes
 local random_rainbow_balls = true
-local chance_of_rainbow_ball = 8 // 1 --- 1/N, with N = number you replace "8" with
-local num_balls = 500 // 1            --- its a good compromise, if you want more i recommend lowering the font size (22 is the default here)
+local chance_of_rainbow_ball = 8 --- 1/N, with N = number you replace "8" with
+local num_balls = 500            --- its a good compromise, if you want more i recommend lowering the font size (22 is the default here)
 
-local balls = {}
-local vertical_wind = 3 // 1
+local vertical_wind = 3
 local width, height = draw.GetScreenSize()
 local font = draw.CreateFont("Arial", 22, 1000)
-draw.SetFont(font)
-local tw, th = draw.GetTextSize("*")
+
+local normal_snowflake_color = {255, 255, 255, 255} --- R G B A (Red Green Blue Alpha)
+---
 
 --- pre cache these functions, for some reason makes the stuttering stop (or reduce)
 local Text = draw.Text --
@@ -22,15 +26,17 @@ local math_floor = math.floor
 local math_randomseed = math.randomseed
 local ipairs = ipairs
 
+local balls = {}
+local flake = tostring(char)
+
 local function create_ball()
    local x = math_random(0, width)
    local y = math_random(-height, 0)
 
-   local white = { 255, 255, 255, 255 }
    local color = { math_random(0, 255), math_random(0, 255), math_random(0, 255), 255 }
 
    return math_floor(x), math_floor(y),
-       ((math_random(chance_of_rainbow_ball) == 1 and random_rainbow_balls) or rainbow_balls) and color or white
+       ((math_random(chance_of_rainbow_ball) == 1 and random_rainbow_balls) or rainbow_balls) and color or normal_snowflake_color
 end
 
 --- create the balls
@@ -67,7 +73,7 @@ callbacks.Register("Draw", function()
       local x, y, color = ball[1], ball[2], ball[3]
       if y > 0 and y < height and x > 0 and x < width then
          Color(color[1], color[2], color[3], color[4])
-         Text(x, y, "*")
+         Text(x, y, flake)
       end
    end
 end)
