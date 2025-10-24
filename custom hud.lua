@@ -277,7 +277,7 @@ local function DrawDebugInfo()
 	DrawText(nil, 10, 10, "wip - latest commit: f28296774dce2036016779321de878ed48d4e860")
 end
 
-local function Draw()
+local function Draw(dme)
 	if client.GetConVar("_cl_classmenuopen") == 1 then
 		if client.GetConVar("cl_drawhud") == 0 then
 			client.SetConVar("cl_drawhud", 1)

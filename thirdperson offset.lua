@@ -1,4 +1,4 @@
-local alib = require("alib")
+local alib = load(http.Get("https://raw.githubusercontent.com/uosq/lbox-alib/refs/tags/0.44.1/alib.lua"))()
 alib.settings.font = draw.CreateFont("TF2 BUILD",12, 1000)
 
 local ui_visible = true -- disable ui

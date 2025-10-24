@@ -45,9 +45,6 @@ local leftx, uppery, rightx, lowery
 leftx, rightx = x - (w // 2), x + (w // 2)
 uppery, lowery = y - (h // 2), y + (h // 2)
 
---- "borrowed" from terminator's pr lol
-local last_choked_commands = 0
-
 local bf = BitBuffer()
 
 local GetConVar = client.GetConVar
@@ -139,14 +136,6 @@ local function CreateMove(cmd)
 
 		plocal:SetPropFloat(globals.CurTime() + 0.1, "m_flAnimTime")
 	end
-
-	--- capture free choked ticks from internet lag or other stuff
-	local current_choked = clientstate:GetChokedCommands()
-	if not warping and not recharging and current_choked > last_choked_commands then
-		local gained = current_choked - last_choked_commands
-		storedticks = storedticks + gained
-	end
-	last_choked_commands = current_choked
 end
 
 local function clamp(value, min, max)
@@ -169,7 +158,7 @@ end
 
 ---@param msg NetMessage
 local function SendNetMsg(msg)
-	if msg:GetType() == 9 then
+	if msg:GetType() == 9 and clientstate:GetChokedCommands() == 0 then
 		if warping then
 			if storedticks > 0 then
 				local newcmds, backupcmds = GetRealCommands()
@@ -260,8 +249,9 @@ local function Draw()
 	draw.Text(tx, ty, current_mode_name)
 
 	draw.SetFont(smallfont)
-	DrawText(recharging, string.format("RECHARGE KEY: %s", RECHARGE_KEY), 0)
-	DrawText(passive, string.format("PASSIVE KEY: %s", TOGGLE_PASSIVE_RECHARGE), 1)
+	DrawText(warping, string.format("WARP KEY: %s", WARP_KEY), 0)
+	DrawText(recharging, string.format("RECHARGE KEY: %s", RECHARGE_KEY), 1)
+	DrawText(passive, string.format("PASSIVE KEY: %s", TOGGLE_PASSIVE_RECHARGE), 2)
 end
 
 local function Unload()

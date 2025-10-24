@@ -3,7 +3,7 @@
 --- settings
 
 --- 0 to 100
-local brightness = 40
+local brightness = 50
 
 --- end of settings
 
@@ -11,10 +11,10 @@ local brightness = 40
 --[[client.SetConVar("fog_enable", 0)
 client.SetConVar("fog_override", 1)]]
 
-local fogs = entities.FindByClass("CFogController")
+--[[local fogs = entities.FindByClass("CFogController")
 for _, fog in pairs(fogs) do
 	fog:SetPropInt(0, "m_fog.enable")
-end
+end]]
 
 ---
 
@@ -106,10 +106,10 @@ local function SendNetMsg(msg)
 	if msg:GetType() == 6 and clientstate:GetClientSignonState() == E_SignonState.SIGNONSTATE_SPAWN then
 		apply_color()
 
-		local fogs = entities.FindByClass("CFogController")
+		--[[local fogs = entities.FindByClass("CFogController")
 		for _, fog in pairs(fogs) do
 			fog:SetPropInt(0, "m_fog.enable")
-		end
+		end]]
 	end
 end
 
