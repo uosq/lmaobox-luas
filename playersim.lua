@@ -189,12 +189,6 @@ local function Friction(velocity, is_on_ground, frametime)
 		velocity.y = velocity.y * newspeed
 		velocity.z = velocity.z * newspeed
 	end
-
-	local mult = vector.Multiply(velocity, 1.0 - newspeed)
-	--velocity = velocity - vector.Multiply(velocity, 1.0 - newspeed)
-	velocity.x = velocity.x - mult.x
-	velocity.y = velocity.y - mult.y
-	velocity.z = velocity.z - mult.z
 end
 
 ---@param index integer
@@ -448,9 +442,11 @@ local function WalkMove(velocity, origin, mins, maxs, step_size, frametime, inde
 	end
 
 	-- Try step move if blocked
-	StepMove(origin, velocity, frametime, mins, maxs, function(ent, contentsMask)
-		return ent:GetIndex() ~= index
-	end, 1.0, step_size, is_on_ground)
+	if trace.fraction < 1.0 then
+		StepMove(origin, velocity, frametime, mins, maxs, function(ent, contentsMask)
+			return ent:GetIndex() ~= index
+		end, 1.0, step_size, is_on_ground)
+	end
 
 	StayOnGround(origin, mins, maxs, step_size, index)
 end
@@ -496,7 +492,7 @@ end
 ---@param target Entity
 local function AirAccelerate(v, wishdir, wishspeed, accel, dt, surf, target)
 	wishspeed = math.min(wishspeed, GetAirSpeedCap(target))
-	local currentspeed = v:Length()
+	local currentspeed = v:Dot(wishdir)
 	local addspeed = wishspeed - currentspeed
 	if addspeed <= 0 then
 		return
