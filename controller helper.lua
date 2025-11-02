@@ -27,25 +27,25 @@ callbacks.Register("CreateMove", function (param)
    if state and tick ~= right_last_tick then
       right_last_tick = tick
       local viewangle = engine:GetViewAngles()
-      local new_angle = viewangle - Vector3(0,90,0)
+      local new_angle = viewangle - Vector3(0, 90, 0)
       new_angle = EulerAngles(new_angle.x, new_angle.y, new_angle.z)
       engine.SetViewAngles(new_angle)
    end
 
-   local state, tick = input.IsButtonPressed(E_ControllerCodes.LEFT_SHOULDER)
+   state, tick = input.IsButtonPressed(E_ControllerCodes.LEFT_SHOULDER)
    if state and tick ~= left_last_tick then
       left_last_tick = tick
       local viewangle = engine:GetViewAngles()
-      local new_angle = viewangle + Vector3(0,90,0)
+      local new_angle = viewangle + Vector3(0, 90, 0)
       new_angle = EulerAngles(new_angle.x, new_angle.y, new_angle.z)
       engine.SetViewAngles(new_angle)
    end
 
-   local state, tick = input.IsButtonPressed(E_ControllerCodes.B)
+   state, tick = input.IsButtonPressed(E_ControllerCodes.B)
    if state and tick ~= b_last_tick then
       b_last_tick = tick
       local viewangle = engine:GetViewAngles()
-      local new_angle = viewangle + Vector3(0,180,0)
+      local new_angle = viewangle + Vector3(0, 180, 0)
       new_angle = EulerAngles(new_angle.x, new_angle.y, new_angle.z)
       engine.SetViewAngles(new_angle)
    end

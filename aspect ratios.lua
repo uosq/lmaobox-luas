@@ -1,4 +1,4 @@
-local alib = require("alib")
+local alib = load(http.Get("https://github.com/uosq/lbox-alib/releases/download/0.44.1/source.lua"))()
 alib.settings.font = draw.CreateFont("TF2 BUILD", 12, 1000)
 
 local selected_ratio = 0

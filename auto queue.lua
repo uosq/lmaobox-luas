@@ -1,6 +1,6 @@
 --- made by navet
 
-party.CancelQueue(party.GetAllMatchGroups().Casual)
+party.CancelQueue(party.GetAllMatchGroups()["Casual"])
 
 local function Draw()
     local casual = party.GetAllMatchGroups()["Casual"]

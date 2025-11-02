@@ -3,6 +3,9 @@
 
 local options = {
 	"gui color",
+	"backtrack indicator color",
+	"aimbot target color",
+	"anti aim indicator color",
 }
 
 local optionsLen = #options
