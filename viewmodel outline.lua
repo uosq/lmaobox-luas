@@ -60,7 +60,7 @@ local function DrawModel(dme)
 
 	PlayerStencil()
 	dme:ForcedMaterialOverride(flat)
-	dme:SetAlphaModulation(0)
+	dme:SetAlphaModulation(0.1)
 	dme:SetColorModulation(0.61, 0, 1)
 	dme:Execute()
 

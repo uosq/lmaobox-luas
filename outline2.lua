@@ -359,17 +359,6 @@ local function FrameStageNotify(stage)
 	end
 end
 
-local function RenderView(view)
-	--[[local thick = 2
-	local side = (thick + 1) // 2
-	local x, y, w, h = render.GetViewport()
-	render.DrawScreenSpaceRectangle(flat, -side, 0, w, h, 0, 0, w - 1, h - 1, w, h);
-	render.DrawScreenSpaceRectangle(flat, 0, -side, w, h, 0, 0, w - 1, h - 1, w, h);
-	render.DrawScreenSpaceRectangle(flat, side, 0, w, h, 0, 0, w - 1, h - 1, w, h);
-	render.DrawScreenSpaceRectangle(flat, 0, side, w, h, 0, 0, w - 1, h - 1, w, h);]]
-end
-
-callbacks.Register("RenderView", RenderView)
 callbacks.Register("FrameStageNotify", FrameStageNotify)
 callbacks.Register("DrawStaticProps", Props)
 
