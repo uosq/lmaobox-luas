@@ -147,16 +147,8 @@ end
 ---@return integer
 local function compute_circle_lod_segments(pos, player_pos)
 	local distance = distance_2d(pos, player_pos)
-
-	if distance <= FULL_RES then
-		return max_num_segments
-	elseif distance <= HALF_RES then
-		return (max_num_segments * 0.5) // 1
-	elseif distance <= EVEN_LOWER_RES then
-		return (max_num_segments * 0.25) // 1
-	else
-		return MINIMUM_SEGMENTS
-	end
+	local num_segments = math.floor(max_num_segments / (1 + distance * 0.01))
+	return math.max(MINIMUM_SEGMENTS, math.min(max_num_segments, num_segments))
 end
 
 ---@param group table
