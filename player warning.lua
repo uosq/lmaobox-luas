@@ -4,6 +4,10 @@
 --- cheaters in the previous lobby update
 local cheaters = {}
 
+local function PartySay(text)
+    client.Command(string.format("say_party %s", text), true)
+end
+
 ---@param event GameEvent
 local function PlayerSpawnEvent(event)
     local team = event:GetInt("team")
@@ -16,7 +20,9 @@ local function PlayerSpawnEvent(event)
         return
     end
 
-    client.ChatPrintf(string.format("[LMAOBOX] Player %s joined the game!", client.GetPlayerNameByUserID(userid)))
+    local text = string.format("Cheater %s (UserID: %s) joined the match!", client.GetPlayerNameByUserID(userid), userid)
+    client.ChatPrintf(text)
+    PartySay(text)
 end
 
 ---@param event GameEvent
@@ -24,7 +30,10 @@ local function PlayerDisconnectEvent(event)
     local steamID = event:GetString("networkid")
     if cheaters[steamID] then
         cheaters[steamID] = nil
-        client.ChatPrintf(string.format("[LMAOBOX] \x03Player \x01%s quit!", steam.GetPlayerName(steamID)))
+        local name = steam.GetPlayerName(steamID)
+        local text = string.format("Cheater %s (SteamID3: %s) quit!", name, steamID)
+        client.ChatPrintf(text)
+        PartySay(text)
     end
 end
 
@@ -42,9 +51,11 @@ local function OnLobbyUpdate(lobby)
     for _, player in pairs(lobby:GetMembers()) do
         if playerlist.GetPriority(player:GetSteamID()) > 0 then
             local steamID = player:GetSteamID()
-            if cheaters[steamID] == nil then
+            if cheaters[steamID] == nil and steam.GetPlayerName(steamID) ~= "[unknown]" then
                 cheaters[steamID] = true
-                client.ChatPrintf(string.format("[LMAOBOX] \x03Player \x01%s joined the game!", steam.GetPlayerName(steamID)))
+                local text = string.format("Cheater %s (SteamID3: %s) joined the match!", steam.GetPlayerName(steamID), steamID)
+                client.ChatPrintf(text)
+                PartySay(text)
             end
         end
     end
