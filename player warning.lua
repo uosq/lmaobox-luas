@@ -20,7 +20,8 @@ local function PlayerSpawnEvent(event)
         return
     end
 
-    local text = string.format("Cheater %s (UserID: %s) joined the match!", client.GetPlayerNameByUserID(userid), userid)
+    local priority = playerlist.GetPriority(userid)
+    local text = string.format("Player %s joined the match! Priority: %d", client.GetPlayerNameByUserID(userid), userid, priority)
     client.ChatPrintf(text)
     PartySay(text)
 end
@@ -31,7 +32,8 @@ local function PlayerDisconnectEvent(event)
     if cheaters[steamID] then
         cheaters[steamID] = nil
         local name = steam.GetPlayerName(steamID)
-        local text = string.format("Cheater %s (SteamID3: %s) quit!", name, steamID)
+        local priority = playerlist.GetPriority(steamID)
+        local text = string.format("Player %s quit! Priority: %d", name, steamID, priority)
         client.ChatPrintf(text)
         PartySay(text)
     end
@@ -53,7 +55,7 @@ local function OnLobbyUpdate(lobby)
             local steamID = player:GetSteamID()
             if cheaters[steamID] == nil and steam.GetPlayerName(steamID) ~= "[unknown]" then
                 cheaters[steamID] = true
-                local text = string.format("Cheater %s (SteamID3: %s) joined the match!", steam.GetPlayerName(steamID), steamID)
+                local text = string.format("Lobby Update - Player %s in the match (priority: %d)!", steam.GetPlayerName(steamID), steamID, playerlist.GetPriority(steamID))
                 client.ChatPrintf(text)
                 PartySay(text)
             end
@@ -61,13 +63,28 @@ local function OnLobbyUpdate(lobby)
     end
 end
 
+local font = draw.CreateFont("Arial", 32, 0)
+
 local function OnDraw()
     if clientstate.GetClientSignonState() < 5 then
-        if #cheaters == 0 then
+        if #cheaters > 0 then
+            cheaters = {}
+        end
+
+        if engine.IsTakingScreenshot() or engine.Con_IsVisible() or not engine.IsGameUIVisible() then
             return
         end
 
-        cheaters = {}
+        draw.SetFont(font)
+        draw.Color(255, 100, 100, 255)
+        local w, h = draw.GetScreenSize()
+        local text = "PLAYER WARNING IS LOADED!"
+        local tw, th = draw.GetTextSize(text)
+        draw.TextShadow(w//2 - tw//2, math.floor(h*0.2) - th//2, text)
+
+        text = "WARNINGS GO TO THE PARTY CHAT!"
+        tw = draw.GetTextSize(text)
+        draw.TextShadow(w//2 - tw//2, math.floor(h*0.25) - th//2, text)
     end
 end
 
