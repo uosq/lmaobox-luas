@@ -21,7 +21,7 @@ local function PlayerSpawnEvent(event)
     end
 
     local priority = playerlist.GetPriority(userid)
-    local text = string.format("Player %s joined the match! Priority: %d", client.GetPlayerNameByUserID(userid), userid, priority)
+    local text = string.format("Player %s joined the match! Priority: %i", client.GetPlayerNameByUserID(userid), userid, priority)
     client.ChatPrintf(text)
     PartySay(text)
 end
@@ -33,7 +33,7 @@ local function PlayerDisconnectEvent(event)
         cheaters[steamID] = nil
         local name = steam.GetPlayerName(steamID)
         local priority = playerlist.GetPriority(steamID)
-        local text = string.format("Player %s quit! Priority: %d", name, steamID, priority)
+        local text = string.format("Player %s quit! Priority: %i", name, steamID, priority)
         client.ChatPrintf(text)
         PartySay(text)
     end
@@ -55,7 +55,7 @@ local function OnLobbyUpdate(lobby)
             local steamID = player:GetSteamID()
             if cheaters[steamID] == nil and steam.GetPlayerName(steamID) ~= "[unknown]" then
                 cheaters[steamID] = true
-                local text = string.format("Lobby Update - Player %s in the match (priority: %d)!", steam.GetPlayerName(steamID), steamID, playerlist.GetPriority(steamID))
+                local text = string.format("Lobby Update - Player %s in the match (priority: %i)!", steam.GetPlayerName(steamID), steamID, playerlist.GetPriority(steamID))
                 client.ChatPrintf(text)
                 PartySay(text)
             end
