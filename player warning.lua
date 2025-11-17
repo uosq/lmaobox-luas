@@ -55,7 +55,7 @@ local function OnLobbyUpdate(lobby)
             local steamID = player:GetSteamID()
             if cheaters[steamID] == nil and steam.GetPlayerName(steamID) ~= "[unknown]" then
                 cheaters[steamID] = true
-                local text = string.format("Lobby Update - Player %s in the match (priority: %i)!", steam.GetPlayerName(steamID), steamID, playerlist.GetPriority(steamID))
+                local text = string.format("Lobby Update - Player %s in the match (priority: %i)!", steam.GetPlayerName(steamID), playerlist.GetPriority(steamID))
                 client.ChatPrintf(text)
                 PartySay(text)
             end
