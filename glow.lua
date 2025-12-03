@@ -1,50 +1,69 @@
 --- I am not smart enough to make this by myself
 --- Source: https://www.unknowncheats.me/forum/team-fortress-2-a/700159-simple-glow-outline.html
 
+--- config
 local stencil = 1
 local glow = 2
 
-local m_pMatGlowColor = materials.Find("dev/glow_color")
-assert(m_pMatGlowColor, "Glow Color is nil!")
+--- materials
+local m_pMatGlowColor = nil
+local m_pMatHaloAddToScreen = nil
+local m_pMatBlurX = nil
+local m_pMatBlurY = nil
+local pRtFullFrame = nil
+local m_pGlowBuffer1 = nil
+local m_pGlowBuffer2 = nil
 
-local m_pMatHaloAddToScreen = materials.Create("GlowMaterialHalo",
-[[UnlitGeneric
-{
-	$basetexture "GlowBuffer1"
-	$additive "1"
-}]])
-assert(m_pMatHaloAddToScreen, "Halo Add To Screen is nil!")
+local function InitMaterials()
+	if m_pMatGlowColor == nil then
+		m_pMatGlowColor = materials.Find("dev/glow_color")
+	end
 
-local m_pMatBlurX = materials.Create("GlowMatBlurX",
-[[BlurFilterX
-{
-	$basetexture "GlowBuffer1"
-}]]);
-assert(m_pMatBlurX, "Blur Filter X is nil!")
+	if m_pMatHaloAddToScreen == nil then
+		m_pMatHaloAddToScreen = materials.Create("GlowMaterialHalo",
+		[[UnlitGeneric
+		{
+			$basetexture "GlowBuffer1"
+			$additive "1"
+		}]])
+	end
 
-local m_pMatBlurY = materials.Create("GlowMatBlurY",
-[[BlurFilterY
-{
-	$basetexture "GlowBuffer2"
-}]])
-assert(m_pMatBlurY, "Blur Filter Y is nil!")
+	if m_pMatBlurX == nil then
+		m_pMatBlurX = materials.Create("GlowMatBlurX",
+		[[BlurFilterX
+		{
+			$basetexture "GlowBuffer1"
+		}]]);
+	end
 
-local pRtFullFrame = materials.FindTexture("_rt_FullFrameFB", "RenderTargets", true);
-assert(pRtFullFrame, "Full Frame FB is nil!")
+	if m_pMatBlurY == nil then
+		m_pMatBlurY = materials.Create("GlowMatBlurY",
+		[[BlurFilterY
+		{
+			$basetexture "GlowBuffer2"
+		}]])
+	end
 
-local m_pGlowBuffer1 = materials.CreateTextureRenderTarget(
-	"GlowBuffer1",
-	pRtFullFrame:GetActualWidth(),
-	pRtFullFrame:GetActualHeight()
-)
-assert(m_pGlowBuffer1, "Glow Buffer 1 is nil!")
+	if pRtFullFrame == nil then
+		pRtFullFrame = materials.FindTexture("_rt_FullFrameFB", "RenderTargets", true);
+	end
 
-local m_pGlowBuffer2 = materials.CreateTextureRenderTarget(
-	"GlowBuffer2",
-	pRtFullFrame:GetActualWidth(),
-	pRtFullFrame:GetActualHeight()
-);
-assert(m_pGlowBuffer2, "Glowo Buffer 2 is nil!")
+	if m_pGlowBuffer1 == nil then
+		m_pGlowBuffer1 = materials.CreateTextureRenderTarget(
+			"GlowBuffer1",
+			pRtFullFrame:GetActualWidth(),
+			pRtFullFrame:GetActualHeight()
+		)
+	end
+
+	if m_pGlowBuffer2 == nil then
+		m_pGlowBuffer2 = materials.CreateTextureRenderTarget(
+			"GlowBuffer2",
+			pRtFullFrame:GetActualWidth(),
+			pRtFullFrame:GetActualHeight()
+		)
+	end
+end
 
 local STUDIO_RENDER = 0x00000001
 local STUDIO_NOSHADOWS = 0x00000080
@@ -134,6 +153,8 @@ local function OnDoPostScreenSpaceEffects()
 	if engine.IsTakingScreenshot() then
 		return
 	end
+
+	InitMaterials()
 
 	local glowEnts = {}
 	local entCount = 0
