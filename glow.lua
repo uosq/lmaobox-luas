@@ -2,7 +2,7 @@
 --- Source: https://www.unknowncheats.me/forum/team-fortress-2-a/700159-simple-glow-outline.html
 
 local stencil = 1
-local glow = 5
+local glow = 2
 
 local m_pMatGlowColor = materials.Find("dev/glow_color")
 assert(m_pMatGlowColor, "Glow Color is nil!")
@@ -131,6 +131,10 @@ local function GetBuildings(className, outTable)
 end
 
 local function OnDoPostScreenSpaceEffects()
+	if engine.IsTakingScreenshot() then
+		return
+	end
+
 	local glowEnts = {}
 	local entCount = 0
 	entCount = entCount + GetPlayers(glowEnts)
@@ -141,6 +145,9 @@ local function OnDoPostScreenSpaceEffects()
 	if entCount == 0 then
 		return
 	end
+
+	local origGlowVal = gui.GetValue("glow")
+	gui.SetValue("glow", 0)
 
 	local w, h = draw.GetScreenSize()
 
@@ -254,6 +261,8 @@ local function OnDoPostScreenSpaceEffects()
 
 		render.SetStencilEnable(false)
 	end
+
+	gui.SetValue("glow", origGlowVal)
 end
 
 callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)

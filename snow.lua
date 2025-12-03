@@ -2,7 +2,7 @@
 
 --- settings
 local char = "*" --- the snowflakes, change them to whatever you want (letter or number)
-local only_on_menu = false
+local only_on_menu = true
 local rainbow_balls = false      --- guaranteed rainbow snowflakes
 local random_rainbow_balls = true
 local chance_of_rainbow_ball = 8 --- 1/N, with N = number you replace "8" with
