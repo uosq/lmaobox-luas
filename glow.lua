@@ -1,6 +1,9 @@
 --- I am not smart enough to make this by myself
 --- Source: https://www.unknowncheats.me/forum/team-fortress-2-a/700159-simple-glow-outline.html
 
+--- make the lsp stop complaining about nil shit
+---@diagnostic disable: param-type-mismatch
+
 --- config
 local stencil = 1
 local glow = 2
@@ -90,6 +93,15 @@ local function GetGuiColor(option)
 end
 
 local function GetColor(entity)
+	if entity:GetClass() == "CBaseAnimating" then
+		local modelName = models.GetModelName(entity:GetModel())
+		if string.find(modelName, "ammopack") then
+			return {1.0, 1.0, 1.0, 1.0}
+		elseif string.find(modelName, "medkit") then
+			return {0.15294117647059, 0.96078431372549, 0.32941176470588, 1.0}
+		end
+	end
+
 	local color = GetGuiColor("aimbot target color")
 	if aimbot.GetAimbotTarget() == entity:GetIndex() and color then
 		return color
@@ -106,8 +118,6 @@ local function GetColor(entity)
 	else
 		return GetGuiColor("red team color") or {0.929277, 0.250944, 0.250944, 1}
 	end
-
-	return {0, 0, 0, 1}
 end
 
 local function DrawEntities(players)
@@ -143,7 +153,7 @@ local function GetPlayers(outTable)
 	return count
 end
 
-local function GetBuildings(className, outTable)
+local function GetClass(className, outTable)
 	local count = 0
 	for _, building in pairs(entities.FindByClass(className)) do
 		if building:ShouldDraw() and building:IsDormant() == false then
@@ -164,10 +174,11 @@ local function OnDoPostScreenSpaceEffects()
 	local glowEnts = {}
 	local entCount = 0
 	entCount = entCount + GetPlayers(glowEnts)
-	entCount = entCount + GetBuildings("CObjectSentrygun", glowEnts)
-	entCount = entCount + GetBuildings("CObjectDispenser", glowEnts)
-	entCount = entCount + GetBuildings("CObjectTeleporter", glowEnts)
-	
+	entCount = entCount + GetClass("CObjectSentrygun", glowEnts)
+	entCount = entCount + GetClass("CObjectDispenser", glowEnts)
+	entCount = entCount + GetClass("CObjectTeleporter", glowEnts)
+	entCount = entCount + GetClass("CBaseAnimating", glowEnts)
+
 	if entCount == 0 then
 		return
 	end
@@ -190,7 +201,7 @@ local function OnDoPostScreenSpaceEffects()
 		render.SetStencilPassOperation(E_StencilOperation.STENCILOPERATION_REPLACE)
 		render.SetStencilFailOperation(E_StencilOperation.STENCILOPERATION_KEEP)
 		render.SetStencilZFailOperation(E_StencilOperation.STENCILOPERATION_REPLACE)
-		
+
 		DrawEntities(glowEnts)
 
 		render.SetBlend(savedBlend)
@@ -228,7 +239,7 @@ local function OnDoPostScreenSpaceEffects()
 	if glow > 0 then
 		render.PushRenderTargetAndViewport()
 		render.Viewport(0, 0, w, h)
-		
+
 		-- More blur iterations = blurrier (does this word exist?) glow
 		for i = 1, glow do
 			render.SetRenderTarget(m_pGlowBuffer2)
@@ -236,7 +247,7 @@ local function OnDoPostScreenSpaceEffects()
 			render.SetRenderTarget(m_pGlowBuffer1)
 			render.DrawScreenSpaceRectangle(m_pMatBlurY, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
 		end
-		
+
 		render.PopRenderTargetAndViewport()
 	end
 
