@@ -90,6 +90,11 @@ local function GetGuiColor(option)
 end
 
 local function GetColor(entity)
+	local color = GetGuiColor("aimbot target color")
+	if aimbot.GetAimbotTarget() == entity:GetIndex() and color then
+		return color
+	end
+
 	if playerlist.GetPriority(entity) > 0 then
 		return {1, 1, 0.0, 1}
 	elseif playerlist.GetPriority(entity) < 0 then
