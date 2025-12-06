@@ -169,6 +169,10 @@ local function OnDoPostScreenSpaceEffects()
 		return
 	end
 
+	if clientstate.GetNetChannel() == nil then
+		return
+	end
+
 	InitMaterials()
 
 	local glowEnts = {}
@@ -302,4 +306,17 @@ local function OnDoPostScreenSpaceEffects()
 	gui.SetValue("glow", origGlowVal)
 end
 
-callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
+---@param ctx DrawModelContext
+local function OnDrawModel(ctx)
+	local entity = ctx:GetEntity()
+	if entity == nil or entity:GetClass() ~= "CTFViewModel" then
+		return
+	end
+
+	--- why does the actual callback work only in 1 update?
+	--- fuck this im not gonna bother asking it to be fixed again
+	OnDoPostScreenSpaceEffects()
+end
+
+--callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
+callbacks.Register("DrawModel", OnDrawModel)
