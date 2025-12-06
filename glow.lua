@@ -132,8 +132,9 @@ end
 
 local function GetPlayers(outTable)
 	local count = 0
+	local index = client.GetLocalPlayerIndex()
 	for _, player in pairs (entities.FindByClass("CTFPlayer")) do
-		if player:ShouldDraw() and player:IsDormant() == false then
+		if player:GetIndex() ~= index and player:ShouldDraw() and player:IsDormant() == false then
 			local color = GetColor(player)
 			outTable[player:GetIndex()] = color
 			local child = player:GetMoveChild()
@@ -314,8 +315,10 @@ local function OnDrawModel(ctx)
 	end
 
 	--- why does the actual callback work only in 1 update?
-	--- fuck this im not gonna bother asking it to be fixed again
+	--- fuck this im not gonna ask lbox fix it again
 	OnDoPostScreenSpaceEffects()
+
+	render.SetColorModulation(1.0, 1.0, 1.0)
 end
 
 --callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
