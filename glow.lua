@@ -5,8 +5,8 @@
 ---@diagnostic disable: param-type-mismatch
 
 --- config
-local stencil = 1
-local glow = 2
+local stencil = 3
+local glow = 0
 
 --- materials
 local m_pMatGlowColor = nil
@@ -307,19 +307,4 @@ local function OnDoPostScreenSpaceEffects()
 	gui.SetValue("glow", origGlowVal)
 end
 
----@param ctx DrawModelContext
-local function OnDrawModel(ctx)
-	local entity = ctx:GetEntity()
-	if entity == nil or entity:GetClass() ~= "CTFViewModel" then
-		return
-	end
-
-	--- why does the actual callback work only in 1 update?
-	--- fuck this im not gonna ask lbox fix it again
-	OnDoPostScreenSpaceEffects()
-
-	render.SetColorModulation(1.0, 1.0, 1.0)
-end
-
---callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
-callbacks.Register("DrawModel", OnDrawModel)
+callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
