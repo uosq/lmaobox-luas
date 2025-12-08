@@ -5,8 +5,8 @@
 ---@diagnostic disable: param-type-mismatch
 
 --- config
-local stencil = 3
-local glow = 0
+local stencil = 4
+local glow = 2
 
 --- materials
 local m_pMatGlowColor = nil
@@ -134,7 +134,7 @@ local function GetPlayers(outTable)
 	local count = 0
 	local index = client.GetLocalPlayerIndex()
 	for _, player in pairs (entities.FindByClass("CTFPlayer")) do
-		if player:GetIndex() ~= index and player:ShouldDraw() and player:IsDormant() == false then
+		if player:ShouldDraw() and player:IsDormant() == false then
 			local color = GetColor(player)
 			outTable[player:GetIndex()] = color
 			local child = player:GetMoveChild()
@@ -309,6 +309,7 @@ local function OnDoPostScreenSpaceEffects()
 	render.SetColorModulation(1, 1, 1)
 end
 
+--- very janky fix
 local function OnDrawModel(ctx)
 	local entity = ctx:GetEntity()
 	if entity == nil or entity:GetClass() ~= "CTFViewModel" then
@@ -318,5 +319,5 @@ local function OnDrawModel(ctx)
 	OnDoPostScreenSpaceEffects()
 end
 
---callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
-callbacks.Register("DrawModel", OnDrawModel)
+callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
+--callbacks.Register("DrawModel", OnDrawModel)
