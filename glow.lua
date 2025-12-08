@@ -305,6 +305,18 @@ local function OnDoPostScreenSpaceEffects()
 	end
 
 	gui.SetValue("glow", origGlowVal)
+
+	render.SetColorModulation(1, 1, 1)
 end
 
-callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
+local function OnDrawModel(ctx)
+	local entity = ctx:GetEntity()
+	if entity == nil or entity:GetClass() ~= "CTFViewModel" then
+		return
+	end
+
+	OnDoPostScreenSpaceEffects()
+end
+
+--callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
+callbacks.Register("DrawModel", OnDrawModel)
