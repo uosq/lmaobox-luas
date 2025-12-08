@@ -1,41 +1,31 @@
 --- made by navet
 
---- settings
 local char = "*" --- the snowflakes, change them to whatever you want (letter or number)
-local only_on_menu = true
-local rainbow_balls = false      --- guaranteed rainbow snowflakes
-local random_rainbow_balls = true
-local chance_of_rainbow_ball = 8 --- 1/N, with N = number you replace "8" with
-local num_balls = 500            --- its a good compromise, if you want more i recommend lowering the font size (22 is the default here)
-
+local num_balls = 500 --- its a good compromise, if you want more i recommend lowering the font size (22 is the default here)
 local vertical_wind = 300
 local width, height = draw.GetScreenSize()
-local font = draw.CreateFont("Arial", 22, 1000)
-
-local normal_snowflake_color = {255, 255, 255, 255} --- R G B A (Red Green Blue Alpha)
----
-
---- pre cache these functions, for some reason makes the stuttering stop (or reduce)
-local Text = draw.Text --
-local Color = draw.Color
-local SetFont = draw.SetFont
-local IsMenuOpen = gui.IsMenuOpen
-
-local math_random = math.random
-local math_floor = math.floor
-local ipairs = ipairs
-
+local aspect = width/height
+local font = draw.CreateFont("Arial", (16 * aspect)//1, 1000)
 local balls = {}
 local flake = tostring(char)
 
 local function create_ball()
-   local x = math_random(0, width)
-   local y = math_random(-height, 0)
+	local x = math.random(0, width)
+	local y = math.random(-height, 0)
 
-   local color = { math_random(0, 255), math_random(0, 255), math_random(0, 255), 255 }
+	--- horizontal sin
+	local h_phase = math.random() * 10
+	local h_speed = 0.3 + math.random() * 0.6 --- 0.3-0.9
+	local h_amp = 15 + math.random() * 25 --- sway
 
-   return math_floor(x), math_floor(y),
-       ((math_random(chance_of_rainbow_ball) == 1 and random_rainbow_balls) or rainbow_balls) and color or normal_snowflake_color
+	--- vertical
+	local v_phase = math.random() * 10
+	local v_speed = 0.5 + math.random() * 0.8 --- 0.5–1.3
+	local v_amp = 20 + math.random() * 30 --- wobble 20-50
+
+	local fall_speed = vertical_wind * (0.7 + math.random() * 0.6) --- 70%–130%
+
+	return x, y, h_phase, h_speed, h_amp, v_phase, v_speed, v_amp, fall_speed
 end
 
 --- create the balls
@@ -45,28 +35,35 @@ end
 
 -- Draw snowflakes
 callbacks.Register("Draw", function()
-   if only_on_menu and not IsMenuOpen() then return end
+	if not gui.IsMenuOpen() then return end
 
-   for i = 1, num_balls do
-      -- Reset if snowflake goes off screen
-      if balls[i][1] > width or balls[i][1] < 0 or balls[i][2] > height then
-         balls[i] = { create_ball() }
-      end
+	local frametime = globals.FrameTime()
+	local time = globals.RealTime()
 
-      balls[i][2] = balls[i][2] + (vertical_wind + math_random(0, 3)) * globals.FrameTime()
+	draw.SetFont(font)
+	draw.Color(255, 255, 255, 255)
 
-      -- Random horizontal movement
-      if math_random(1, 32) == 1 then
-         balls[i][1] = balls[i][1] + math_random(-2, 2) * globals.FrameTime()
-      end
-   end
+	for i = 1, num_balls do
+		local ball = balls[i]
 
-   SetFont(font)
-   for k, ball in ipairs(balls) do
-      local x, y, color = ball[1], ball[2], ball[3]
-      if y > 0 and y < height and x > 0 and x < width then
-         Color(color[1], color[2], color[3], color[4])
-         Text(x//1, y//1, flake)
-      end
-   end
+		local x, y = ball[1], ball[2]
+		local h_phase, h_speed, h_amp = ball[3], ball[4], ball[5]
+		local v_phase, v_speed, v_amp = ball[6], ball[7], ball[8]
+		local fall_speed = ball[9]
+
+		y = y + (fall_speed + math.sin(time * v_speed + v_phase) * v_amp) * frametime
+
+		x = x + math.sin(time * h_speed + h_phase) * h_amp * frametime
+
+		ball[1], ball[2] = x, y
+
+		-- reset if out of the screen
+		if x < -50 or x > width + 50 or y > height + 50 then
+			balls[i] = { create_ball() }
+		end
+
+		if y > 0 and y < height and x > 0 and x < width then
+			draw.TextShadow(x//1, y//1, flake)
+		end
+	end
 end)
