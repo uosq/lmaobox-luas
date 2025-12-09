@@ -378,7 +378,7 @@ function window:CreateSlider(tab_index, width, height, label, min, max, currentv
             --- update slider value based on mouse position
             local mousePercent = (mx - bx) / bw
             mousePercent = math.max(0, math.min(1, mousePercent))
-            self.value = self.min + (self.max - self.min) * mousePercent
+            self.value = (self.min + (self.max - self.min) * mousePercent)//1
 
             if (self.func) then
                 self.func(self.value)
@@ -549,8 +549,8 @@ local function GetColor(entity)
 	end
 end
 
-local function DrawEntities(players)
-	for index, color in pairs (players) do
+local function DrawEntities(ents)
+	for index, color in pairs (ents) do
 		local player = entities.GetByIndex(index)
 		if player then
 			render.SetColorModulation(table.unpack(color))
@@ -606,8 +606,19 @@ local function OnDoPostScreenSpaceEffects()
 
 	local glowEnts = {}
 	local entCount = 0
+
 	if players then
 		entCount = entCount + GetPlayers(glowEnts)
+	end
+
+	if viewmodel then
+		local plocal = entities.GetLocalPlayer()
+		if plocal and plocal:GetPropBool("m_nForceTauntCam") == false and plocal:InCond(E_TFCOND.TFCond_Taunting) == false then
+			local _, _, cvar = client.GetConVar("cl_first_person_uses_world_model")
+			if cvar == "0" then
+				entCount = entCount + GetClass("CTFViewModel", glowEnts)
+			end
+		end
 	end
 
 	if sentries then
@@ -624,16 +635,6 @@ local function OnDoPostScreenSpaceEffects()
 
 	if medammo then
 		entCount = entCount + GetClass("CBaseAnimating", glowEnts)
-	end
-
-	if viewmodel then
-		local plocal = entities.GetLocalPlayer()
-		if plocal and plocal:GetPropBool("m_nForceTauntCam") == false and plocal:InCond(E_TFCOND.TFCond_Taunting) == false then
-			local _, _, cvar = client.GetConVar("cl_first_person_uses_world_model")
-			if cvar == "0" then
-				entCount = entCount + GetClass("CTFViewModel", glowEnts)
-			end
-		end
 	end
 
 	if entCount == 0 then
@@ -773,11 +774,11 @@ end
 
 local wind = window.New()
 wind:CreateSlider(1, 100, 20, "Blurriness", 0, 30, glow, function (value)
-	glow = value//1
+	glow = value
 end)
 
 wind:CreateSlider(1, 100, 20, "Stencil", 0, 30, stencil, function (value)
-	stencil = value//1
+	stencil = value
 end)
 
 wind:CreateToggle(1, 20, 20, "Weapons", weapon, function (checked)
