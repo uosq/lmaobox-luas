@@ -1,5 +1,9 @@
 --- made by navet
 
+---
+local only_on_menu = true
+---
+
 local char = "*" --- the snowflakes, change them to whatever you want (letter or number)
 local num_balls = 500 --- its a good compromise, if you want more i recommend lowering the font size (22 is the default here)
 local vertical_wind = 300
@@ -35,7 +39,7 @@ end
 
 -- Draw snowflakes
 callbacks.Register("Draw", function()
-	if not gui.IsMenuOpen() then return end
+	if only_on_menu and gui.IsMenuOpen() == false then return end
 
 	local frametime = globals.FrameTime()
 	local time = globals.RealTime()

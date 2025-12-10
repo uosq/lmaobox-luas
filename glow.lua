@@ -561,6 +561,7 @@ end
 
 local function GetPlayers(outTable)
 	local count = 0
+
 	for _, player in pairs (entities.FindByClass("CTFPlayer")) do
 		if player:ShouldDraw() and player:IsDormant() == false then
 			local color = GetColor(player)
@@ -579,6 +580,7 @@ local function GetPlayers(outTable)
 			count = count + 1
 		end
 	end
+
 	return count
 end
 
@@ -598,7 +600,15 @@ local function OnDoPostScreenSpaceEffects()
 		return
 	end
 
+	if clientstate.GetClientSignonState() <= E_SignonState.SIGNONSTATE_SPAWN then
+		return
+	end
+
 	if clientstate.GetNetChannel() == nil then
+		return
+	end
+
+	if glow == 0 and stencil == 0 then
 		return
 	end
 
@@ -609,16 +619,6 @@ local function OnDoPostScreenSpaceEffects()
 
 	if players then
 		entCount = entCount + GetPlayers(glowEnts)
-	end
-
-	if viewmodel then
-		local plocal = entities.GetLocalPlayer()
-		if plocal and plocal:GetPropBool("m_nForceTauntCam") == false and plocal:InCond(E_TFCOND.TFCond_Taunting) == false then
-			local _, _, cvar = client.GetConVar("cl_first_person_uses_world_model")
-			if cvar == "0" then
-				entCount = entCount + GetClass("CTFViewModel", glowEnts)
-			end
-		end
 	end
 
 	if sentries then
@@ -635,6 +635,16 @@ local function OnDoPostScreenSpaceEffects()
 
 	if medammo then
 		entCount = entCount + GetClass("CBaseAnimating", glowEnts)
+	end
+
+	if viewmodel then
+		local plocal = entities.GetLocalPlayer()
+		if plocal and plocal:GetPropBool("m_nForceTauntCam") == false and plocal:InCond(E_TFCOND.TFCond_Taunting) == false then
+			local _, _, cvar = client.GetConVar("cl_first_person_uses_world_model")
+			if cvar == "0" then
+				entCount = entCount + GetClass("CTFViewModel", glowEnts)
+			end
+		end
 	end
 
 	if entCount == 0 then
@@ -759,7 +769,7 @@ local function OnDoPostScreenSpaceEffects()
 
 	gui.SetValue("glow", origGlowVal)
 
-	render.SetColorModulation(1, 1, 1)
+	--render.SetColorModulation(1, 1, 1)
 end
 
 --- very janky fix
