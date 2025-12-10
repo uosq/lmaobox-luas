@@ -436,6 +436,7 @@ local dispensers = true
 local teleporters = true
 local medammo = true
 local viewmodel = true
+local christmasball = true --- the christmas ball (i dont know what to name it)
 
 --- materials
 local m_pMatGlowColor = nil
@@ -521,6 +522,7 @@ local function GetGuiColor(option)
     return { r * 0.003921, g * 0.003921, b * 0.003921, a * 0.003921 }
 end
 
+---@param entity Entity
 local function GetColor(entity)
 	if entity:GetClass() == "CBaseAnimating" then
 		local modelName = models.GetModelName(entity:GetModel())
@@ -529,6 +531,18 @@ local function GetColor(entity)
 		elseif string.find(modelName, "medkit") then
 			return {0.15294117647059, 0.96078431372549, 0.32941176470588, 1.0}
 		end
+	end
+
+	if entity:GetIndex() == client.GetLocalPlayerIndex() then
+		return {0, 1, 0.501888, 1}
+	end
+
+	if entity:GetClass() == "CPhysicsProp" then
+		return {1.0, 1.0, 1.0, 1.0}
+	end
+
+	if weapon and entity:IsWeapon() then
+		return {1.0, 1.0, 1.0, 1.0}
 	end
 
 	local color = GetGuiColor("aimbot target color")
@@ -550,49 +564,48 @@ local function GetColor(entity)
 end
 
 local function DrawEntities(ents)
-	for index, color in pairs (ents) do
-		local player = entities.GetByIndex(index)
-		if player then
-			render.SetColorModulation(table.unpack(color))
-			player:DrawModel(STUDIO_RENDER | STUDIO_NOSHADOWS)
+	for _, info in pairs (ents) do
+		local entity = entities.GetByIndex(info[1])
+		if entity then
+			local color = info[2]
+			render.SetColorModulation(color[1], color[2], color[3])
+			entity:DrawModel(STUDIO_RENDER | STUDIO_NOSHADOWS)
 		end
 	end
 end
 
 local function GetPlayers(outTable)
-	local count = 0
-
 	for _, player in pairs (entities.FindByClass("CTFPlayer")) do
 		if player:ShouldDraw() and player:IsDormant() == false then
 			local color = GetColor(player)
-			outTable[player:GetIndex()] = color
+			outTable[#outTable+1] = {player:GetIndex(), color}
 			local child = player:GetMoveChild()
 			while child ~= nil do
-				if weapon and (child:IsShootingWeapon() or child:IsMeleeWeapon()) then
-					outTable[child:GetIndex()] = {1, 1, 1, 1}
+				if weapon and child:IsWeapon() then
+					outTable[#outTable+1] = {child:GetIndex(), {1, 1, 1, 1}}
 				else
-					outTable[child:GetIndex()] = color
+					outTable[#outTable+1] = {child:GetIndex(), color}
 				end
-				count = count + 1
 				child = child:GetMovePeer()
 			end
-
-			count = count + 1
 		end
 	end
-
-	return count
 end
 
 local function GetClass(className, outTable)
-	local count = 0
 	for _, building in pairs(entities.FindByClass(className)) do
 		if building:ShouldDraw() and building:IsDormant() == false then
-			outTable[building:GetIndex()] = GetColor(building)
-			count = count + 1
+			outTable[#outTable+1] = {building:GetIndex(), GetColor(building)}
 		end
 	end
-	return count
+end
+
+local function GetChristmasBalls(outTable)
+	for _, ball in pairs (entities.FindByClass("CPhysicsProp")) do
+		if models.GetModelName(ball:GetModel()) == "models/props_gameplay/ball001.mdl" then
+			outTable[#outTable+1] = {ball:GetIndex(), GetColor(ball)}
+		end
+	end
 end
 
 local function OnDoPostScreenSpaceEffects()
@@ -615,44 +628,28 @@ local function OnDoPostScreenSpaceEffects()
 	InitMaterials()
 
 	local glowEnts = {}
-	local entCount = 0
 
-	if players then
-		entCount = entCount + GetPlayers(glowEnts)
-	end
-
-	if sentries then
-		entCount = entCount + GetClass("CObjectSentrygun", glowEnts)
-	end
-
-	if dispensers then
-		entCount = entCount + GetClass("CObjectDispenser", glowEnts)
-	end
-
-	if teleporters then
-		entCount = entCount + GetClass("CObjectTeleporter", glowEnts)
-	end
-
-	if medammo then
-		entCount = entCount + GetClass("CBaseAnimating", glowEnts)
-	end
+	if sentries then GetClass("CObjectSentrygun", glowEnts) end
+	if dispensers then GetClass("CObjectDispenser", glowEnts) end
+	if teleporters then GetClass("CObjectTeleporter", glowEnts) end
+	if medammo then GetClass("CBaseAnimating", glowEnts) end
+	if players then GetPlayers(glowEnts) end
 
 	if viewmodel then
 		local plocal = entities.GetLocalPlayer()
 		if plocal and plocal:GetPropBool("m_nForceTauntCam") == false and plocal:InCond(E_TFCOND.TFCond_Taunting) == false then
 			local _, _, cvar = client.GetConVar("cl_first_person_uses_world_model")
 			if cvar == "0" then
-				entCount = entCount + GetClass("CTFViewModel", glowEnts)
+				GetClass("CTFViewModel", glowEnts)
 			end
 		end
 	end
 
-	if entCount == 0 then
+	if christmasball then GetChristmasBalls(glowEnts) end
+
+	if #glowEnts == 0 then
 		return
 	end
-
-	local origGlowVal = gui.GetValue("glow")
-	gui.SetValue("glow", 0)
 
 	local w, h = draw.GetScreenSize()
 
@@ -766,20 +763,6 @@ local function OnDoPostScreenSpaceEffects()
 
 		render.SetStencilEnable(false)
 	end
-
-	gui.SetValue("glow", origGlowVal)
-
-	--render.SetColorModulation(1, 1, 1)
-end
-
---- very janky fix
-local function OnDrawModel(ctx)
-	local entity = ctx:GetEntity()
-	if entity == nil or entity:GetClass() ~= "CTFViewModel" then
-		return
-	end
-
-	OnDoPostScreenSpaceEffects()
 end
 
 local wind = window.New()
@@ -815,6 +798,10 @@ wind:CreateToggle(1, 20, 20, "ViewModel", viewmodel, function (checked)
 	viewmodel = checked
 end)
 
+wind:CreateToggle(1, 20, 20, "Smissmass Ball", christmasball, function (checked)
+	christmasball = checked
+end)
+
 wind.title = "Glow Settings"
 wind.x = 10
 wind.y = 50
@@ -828,4 +815,3 @@ callbacks.Register("Draw", OnDraw)
 callbacks.Register("Unload", function ()
 	draw.DeleteTexture(white_texture)
 end)
---callbacks.Register("DrawModel", OnDrawModel)
