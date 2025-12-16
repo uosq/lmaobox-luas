@@ -3,6 +3,7 @@
 
 --- make the lsp stop complaining about nil shit
 ---@diagnostic disable: param-type-mismatch
+---@diagnostic disable: duplicate-set-field, duplicate-doc-field
 
 ---@class Context
 ---@field mouseX integer
@@ -446,6 +447,7 @@ local m_pMatBlurY = nil
 local pRtFullFrame = nil
 local m_pGlowBuffer1 = nil
 local m_pGlowBuffer2 = nil
+local m_init = false
 
 local function InitMaterials()
 	if m_pMatGlowColor == nil then
@@ -496,6 +498,38 @@ local function InitMaterials()
 			pRtFullFrame:GetActualHeight()
 		)
 	end
+end
+
+local function AreMaterialsValid()
+	if m_pMatGlowColor == nil then
+		return false
+	end
+
+	if m_pMatHaloAddToScreen == nil then
+		return false
+	end
+
+	if m_pMatBlurX == nil then
+		return false
+	end
+
+	if m_pMatBlurY == nil then
+		return false
+	end
+
+	if pRtFullFrame == nil then
+		return false
+	end
+
+	if m_pGlowBuffer1 == nil then
+		return false
+	end
+
+	if m_pGlowBuffer2 == nil then
+		return false
+	end
+
+	return true
 end
 
 local STUDIO_RENDER = 0x00000001
@@ -564,6 +598,9 @@ local function GetColor(entity)
 end
 
 local function DrawEntities(ents)
+	local znear, zfar = render.GetDepthRange()
+	render.DepthRange(0, 1)
+
 	for _, info in pairs (ents) do
 		local entity = entities.GetByIndex(info[1])
 		if entity then
@@ -572,6 +609,8 @@ local function DrawEntities(ents)
 			entity:DrawModel(STUDIO_RENDER | STUDIO_NOSHADOWS)
 		end
 	end
+
+	render.DepthRange(znear, zfar)
 end
 
 local function GetPlayers(outTable)
@@ -625,7 +664,9 @@ local function OnDoPostScreenSpaceEffects()
 		return
 	end
 
-	InitMaterials()
+	if AreMaterialsValid() == false then
+		InitMaterials()
+	end
 
 	local glowEnts = {}
 
@@ -635,17 +676,20 @@ local function OnDoPostScreenSpaceEffects()
 	if medammo then GetClass("CBaseAnimating", glowEnts) end
 	if players then GetPlayers(glowEnts) end
 
+	if christmasball then GetChristmasBalls(glowEnts) end
+
 	if viewmodel then
 		local plocal = entities.GetLocalPlayer()
 		if plocal and plocal:GetPropBool("m_nForceTauntCam") == false and plocal:InCond(E_TFCOND.TFCond_Taunting) == false then
 			local _, _, cvar = client.GetConVar("cl_first_person_uses_world_model")
 			if cvar == "0" then
-				GetClass("CTFViewModel", glowEnts)
+				local m_hViewModel = plocal:GetPropEntity("m_hViewModel[0]")
+				if m_hViewModel then
+					glowEnts[#glowEnts+1] = {m_hViewModel:GetIndex(), GetColor(m_hViewModel)}
+				end
 			end
 		end
 	end
-
-	if christmasball then GetChristmasBalls(glowEnts) end
 
 	if #glowEnts == 0 then
 		return
@@ -656,7 +700,6 @@ local function OnDoPostScreenSpaceEffects()
 	--- Stencil Pass
 	do
 		render.SetStencilEnable(true)
-
 		render.ForcedMaterialOverride(m_pMatGlowColor)
 		local savedBlend = render.GetBlend()
 		render.SetBlend(0)
