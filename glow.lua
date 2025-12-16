@@ -436,7 +436,7 @@ local sentries = true
 local dispensers = true
 local teleporters = true
 local medammo = true
-local viewmodel = true
+--local viewmodel = false
 local christmasball = true --- the christmas ball (i dont know what to name it)
 
 --- materials
@@ -447,7 +447,6 @@ local m_pMatBlurY = nil
 local pRtFullFrame = nil
 local m_pGlowBuffer1 = nil
 local m_pGlowBuffer2 = nil
-local m_init = false
 
 local function InitMaterials()
 	if m_pMatGlowColor == nil then
@@ -683,7 +682,7 @@ local function OnDoPostScreenSpaceEffects()
 
 	if christmasball then GetChristmasBalls(glowEnts) end
 
-	if viewmodel then
+	--[[if viewmodel then
 		local plocal = entities.GetLocalPlayer()
 		if plocal and plocal:GetPropBool("m_nForceTauntCam") == false and plocal:InCond(E_TFCOND.TFCond_Taunting) == false then
 			local _, _, cvar = client.GetConVar("cl_first_person_uses_world_model")
@@ -694,7 +693,7 @@ local function OnDoPostScreenSpaceEffects()
 				end
 			end
 		end
-	end
+	end]]
 
 	if #glowEnts == 0 then
 		return
@@ -844,9 +843,9 @@ wind:CreateToggle(1, 20, 20, "Med Kit / Ammo", players, function (checked)
 	medammo = checked
 end)
 
-wind:CreateToggle(1, 20, 20, "ViewModel", viewmodel, function (checked)
+--[[wind:CreateToggle(1, 20, 20, "ViewModel", viewmodel, function (checked)
 	viewmodel = checked
-end)
+end)]]
 
 wind:CreateToggle(1, 20, 20, "Smissmass Ball", christmasball, function (checked)
 	christmasball = checked
