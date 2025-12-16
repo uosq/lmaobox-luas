@@ -1,3 +1,4 @@
+---@diagnostic disable: cast-local-type
 --- I am not smart enough to make this by myself
 --- Source: https://www.unknowncheats.me/forum/team-fortress-2-a/700159-simple-glow-outline.html
 
@@ -236,7 +237,7 @@ function window:InsertElement(object, tab_index)
 
     local tab = self.tabs[tab_index]
     tab.objs[#tab.objs + 1] = object
-    self:RecalculateLayout(tab_index)
+    --self:RecalculateLayout(tab_index)
     return true
 end
 
@@ -436,7 +437,8 @@ local sentries = true
 local dispensers = true
 local teleporters = true
 local medammo = true
---local viewmodel = false
+local viewmodelArm = true
+local viewmodelWeapon = true
 local christmasball = true --- the christmas ball (i dont know what to name it)
 
 --- materials
@@ -447,6 +449,8 @@ local m_pMatBlurY = nil
 local pRtFullFrame = nil
 local m_pGlowBuffer1 = nil
 local m_pGlowBuffer2 = nil
+
+local _, _, saved_glow_outline_effect_enable = client.GetConVar("glow_outline_effect_enable")
 
 local function InitMaterials()
 	if m_pMatGlowColor == nil then
@@ -459,6 +463,7 @@ local function InitMaterials()
 		{
 			$basetexture "GlowBuffer1"
 			$additive "1"
+			$C0_X "1"
 		}]])
 	end
 
@@ -539,7 +544,7 @@ local function GetGuiColor(option)
     if value == 255 then
         return nil
     elseif value == -1 then
-	return {1, 1, 1, 1}
+	return {1, 1, 1}
     end
 
     -- convert signed 32-bit int to unsigned 32-bit
@@ -560,22 +565,35 @@ local function GetColor(entity)
 	if entity:GetClass() == "CBaseAnimating" then
 		local modelName = models.GetModelName(entity:GetModel())
 		if string.find(modelName, "ammopack") then
-			return {1.0, 1.0, 1.0, 1.0}
+			return {1.0, 1.0, 1.0}
 		elseif string.find(modelName, "medkit") then
-			return {0.15294117647059, 0.96078431372549, 0.32941176470588, 1.0}
+			return {0.15294117647059, 0.96078431372549, 0.32941176470588}
 		end
 	end
 
 	if entity:GetIndex() == client.GetLocalPlayerIndex() then
-		return {0, 1, 0.501888, 1}
+		return {0, 1, 0.501888}
 	end
 
 	if entity:GetClass() == "CPhysicsProp" then
-		return {1.0, 1.0, 1.0, 1.0}
+		return {1.0, 1.0, 1.0}
+	end
+
+	if entity:GetClass() == "CTFViewModel" then
+		local plocal = entity:GetPropEntity("m_hOwner")
+		if plocal then
+			if plocal:GetTeamNumber() == 3 then
+				return GetGuiColor("blue team color") or {0.145077, 0.58815, 0.74499}
+			else
+				return GetGuiColor("red team color") or {0.929277, 0.250944, 0.250944}
+			end
+		end
+
+		return {1, 1, 1}
 	end
 
 	if weapon and entity:IsWeapon() then
-		return {1.0, 1.0, 1.0, 1.0}
+		return {1.0, 1.0, 1.0}
 	end
 
 	local color = GetGuiColor("aimbot target color")
@@ -584,22 +602,19 @@ local function GetColor(entity)
 	end
 
 	if playerlist.GetPriority(entity) > 0 then
-		return {1, 1, 0.0, 1}
+		return {1, 1, 0.0}
 	elseif playerlist.GetPriority(entity) < 0 then
-		return {0, 1, 0.501888, 1}
+		return {0, 1, 0.501888}
 	end
 
 	if entity:GetTeamNumber() == 3 then
-		return GetGuiColor("blue team color") or {0.145077, 0.58815, 0.74499, 1}
+		return GetGuiColor("blue team color") or {0.145077, 0.58815, 0.74499}
 	else
-		return GetGuiColor("red team color") or {0.929277, 0.250944, 0.250944, 1}
+		return GetGuiColor("red team color") or {0.929277, 0.250944, 0.250944}
 	end
 end
 
-local function DrawEntities(ents)
-	local znear, zfar = render.GetDepthRange()
-	render.DepthRange(0, 1)
-
+local function DrawEntitiesColored(ents)
 	for _, info in pairs (ents) do
 		local entity = entities.GetByIndex(info[1])
 		if entity then
@@ -608,8 +623,15 @@ local function DrawEntities(ents)
 			entity:DrawModel(STUDIO_RENDER | STUDIO_NOSHADOWS)
 		end
 	end
+end
 
-	render.DepthRange(znear, zfar)
+local function DrawEntities(ents)
+	for _, info in pairs (ents) do
+		local entity = entities.GetByIndex(info[1])
+		if entity then
+			entity:DrawModel(STUDIO_RENDER | STUDIO_NOSHADOWS)
+		end
+	end
 end
 
 local function GetPlayers(outTable)
@@ -620,7 +642,7 @@ local function GetPlayers(outTable)
 			local child = player:GetMoveChild()
 			while child ~= nil do
 				if weapon and child:IsWeapon() then
-					outTable[#outTable+1] = {child:GetIndex(), {1, 1, 1, 1}}
+					outTable[#outTable+1] = {child:GetIndex(), {1, 1, 1}}
 				else
 					outTable[#outTable+1] = {child:GetIndex(), color}
 				end
@@ -670,8 +692,10 @@ local function OnDoPostScreenSpaceEffects()
 	local glowEnts = {}
 
 	local _, _, glow_outline_effect_enable = client.GetConVar("glow_outline_effect_enable")
-	if glow_outline_effect_enable == "1" then
-		client.SetConVar("glow_outline_effect_enable", "0")
+	if glow_outline_effect_enable ~= "1" then
+		client.SetConVar("glow_outline_effect_enable", "1")
+		printc(255, 255, 0, 255, "glow_outline_effect_enable will be enabled until glow is unloaded")
+		client.ChatPrintf("\x03glow_outline_effect_enable will be enabled until glow is unloaded")
 	end
 
 	if sentries then GetClass("CObjectSentrygun", glowEnts) end
@@ -681,19 +705,6 @@ local function OnDoPostScreenSpaceEffects()
 	if players then GetPlayers(glowEnts) end
 
 	if christmasball then GetChristmasBalls(glowEnts) end
-
-	--[[if viewmodel then
-		local plocal = entities.GetLocalPlayer()
-		if plocal and plocal:GetPropBool("m_nForceTauntCam") == false and plocal:InCond(E_TFCOND.TFCond_Taunting) == false then
-			local _, _, cvar = client.GetConVar("cl_first_person_uses_world_model")
-			if cvar == "0" then
-				local m_hViewModel = plocal:GetPropEntity("m_hViewModel[0]")
-				if m_hViewModel then
-					glowEnts[#glowEnts+1] = {m_hViewModel:GetIndex(), GetColor(m_hViewModel)}
-				end
-			end
-		end
-	end]]
 
 	if #glowEnts == 0 then
 		return
@@ -705,6 +716,7 @@ local function OnDoPostScreenSpaceEffects()
 	do
 		render.SetStencilEnable(true)
 		render.ForcedMaterialOverride(m_pMatGlowColor)
+
 		local savedBlend = render.GetBlend()
 		render.SetBlend(0)
 
@@ -738,7 +750,7 @@ local function OnDoPostScreenSpaceEffects()
 
 		render.ForcedMaterialOverride(m_pMatGlowColor)
 
-		DrawEntities(glowEnts)
+		DrawEntitiesColored(glowEnts)
 
 		render.ForcedMaterialOverride(nil)
 		render.SetColorModulation(r, g, b)
@@ -810,44 +822,208 @@ local function OnDoPostScreenSpaceEffects()
 
 		render.SetStencilEnable(false)
 	end
+end
 
-	client.SetConVar("glow_outline_effect_enable", glow_outline_effect_enable)
+---@param vm Entity
+local function DrawViewModelChildren(vm)
+	local child = vm:GetMoveChild()
+	while child ~= nil do
+		child:DrawModel(STUDIO_RENDER | STUDIO_NOSHADOWS)
+		child = child:GetMovePeer()
+	end
+end
+
+---@param ctx DrawModelContext
+local function ApplyToViewModel(ctx)
+	local entity = ctx:GetEntity()
+	if entity == nil or entity:GetClass() ~= "CTFViewModel" or not string.find(ctx:GetModelName(), "models/weapons/c_models") then
+		return
+	end
+
+	if viewmodelArm == false and viewmodelWeapon == false then
+		return
+	end
+
+	if glow == 0 and stencil == 0 then
+		return
+	end
+
+	if engine.IsTakingScreenshot() then
+		return
+	end
+
+	if clientstate.GetClientSignonState() <= E_SignonState.SIGNONSTATE_SPAWN then
+		return
+	end
+
+	if clientstate.GetNetChannel() == nil then
+		return
+	end
+
+	if AreMaterialsValid() == false then
+		InitMaterials()
+	end
+
+	local w, h = draw.GetScreenSize()
+	local color = GetColor(entity)
+
+	--- Stencil Pass
+	do
+		render.SetStencilEnable(true)
+		render.ForcedMaterialOverride(m_pMatGlowColor)
+
+		local savedBlend = render.GetBlend()
+		render.SetBlend(0)
+
+		render.SetStencilReferenceValue(1)
+		render.SetStencilCompareFunction(E_StencilComparisonFunction.STENCILCOMPARISONFUNCTION_ALWAYS)
+		render.SetStencilPassOperation(E_StencilOperation.STENCILOPERATION_REPLACE)
+		render.SetStencilFailOperation(E_StencilOperation.STENCILOPERATION_KEEP)
+		render.SetStencilZFailOperation(E_StencilOperation.STENCILOPERATION_REPLACE)
+
+		if viewmodelArm then
+			ctx:Execute()
+		end
+
+		if viewmodelWeapon then
+			DrawViewModelChildren(entity)
+		end
+
+		render.SetBlend(savedBlend)
+		render.ForcedMaterialOverride(nil)
+		render.SetStencilEnable(false)
+
+		savedBlend = nil
+	end
+
+	--- Color pass
+	do
+		render.PushRenderTargetAndViewport()
+
+		local r, g, b = render.GetColorModulation()
+
+		local savedBlend = render.GetBlend()
+		render.SetBlend(1.0)
+
+		render.SetRenderTarget(m_pGlowBuffer1)
+		render.Viewport(0, 0, w, h)
+
+		render.ClearColor3ub(0, 0, 0)
+		render.ClearBuffers(true, false, false)
+
+		render.ForcedMaterialOverride(m_pMatGlowColor)
+
+		render.SetColorModulation(color[1], color[2], color[3])
+		if viewmodelWeapon then
+			DrawViewModelChildren(entity)
+		end
+
+		if viewmodelArm then
+			ctx:Execute()
+		end
+
+		render.ForcedMaterialOverride(nil)
+		render.SetColorModulation(r, g, b)
+		render.SetBlend(savedBlend)
+
+		render.PopRenderTargetAndViewport()
+	end
+
+	--- Blur pass
+	if glow > 0 then
+		render.PushRenderTargetAndViewport()
+		render.Viewport(0, 0, w, h)
+
+		-- More blur iterations = blurrier (does this word exist?) glow
+		for i = 1, glow do
+			render.SetRenderTarget(m_pGlowBuffer2)
+			render.DrawScreenSpaceRectangle(m_pMatBlurX, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
+		end
+
+		for i = 1, glow do
+			render.SetRenderTarget(m_pGlowBuffer1)
+			render.DrawScreenSpaceRectangle(m_pMatBlurY, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
+		end
+
+		render.PopRenderTargetAndViewport()
+	end
+
+	--- Final pass
+	do
+		render.SetStencilEnable(true)
+		render.SetStencilWriteMask(0)
+		render.SetStencilTestMask(0xFF)
+
+		render.SetStencilReferenceValue(1)
+		render.SetStencilCompareFunction(E_StencilComparisonFunction.STENCILCOMPARISONFUNCTION_NOTEQUAL)
+
+		render.SetStencilPassOperation(E_StencilOperation.STENCILOPERATION_KEEP)
+		render.SetStencilFailOperation(E_StencilOperation.STENCILOPERATION_KEEP)
+		render.SetStencilZFailOperation(E_StencilOperation.STENCILOPERATION_KEEP)
+
+		--- pasted from amalgam
+		--- https://github.com/rei-2/Amalgam/blob/fce4740bf3af0799064bf6c8fbeaa985151b708c/Amalgam/src/Features/Visuals/Glow/Glow.cpp#L65
+		if stencil > 0 then
+			local iSide = (stencil + 1) // 2
+			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iSide, 0, w, h, 0, 0, w - 1, h - 1, w, h);
+			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, -iSide, w, h, 0, 0, w - 1, h - 1, w, h);
+			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iSide, 0, w, h, 0, 0, w - 1, h - 1, w, h);
+			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, iSide, w, h, 0, 0, w - 1, h - 1, w, h);
+			local iCorner = stencil // 2
+			if (iCorner > 0) then
+				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iCorner, -iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
+				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iCorner, iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
+				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iCorner, -iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
+				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iCorner, iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
+			end
+		end
+
+		if glow > 0 then
+			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h);
+		end
+
+		render.SetStencilEnable(false)
+	end
+
+	render.SetColorModulation(1.0, 1.0, 1.0)
 end
 
 local wind = window.New()
-wind:CreateSlider(1, 100, 20, "Blurriness", 0, 30, glow, function (value)
+wind:CreateSlider(1, 150, 20, "Blurriness", 0, 30, glow, function (value)
 	glow = value
 end)
 
-wind:CreateSlider(1, 100, 20, "Stencil", 0, 30, stencil, function (value)
+wind:CreateSlider(1, 150, 20, "Stencil", 0, 30, stencil, function (value)
 	stencil = value
 end)
 
-wind:CreateToggle(1, 20, 20, "Weapons", weapon, function (checked)
+wind:CreateToggle(1, 200, 20, "Weapons", weapon, function (checked)
 	weapon = checked
 end)
 
-wind:CreateToggle(1, 20, 20, "Players", players, function (checked)
+wind:CreateToggle(1, 200, 20, "Players", players, function (checked)
 	players = checked
 end)
 
-wind:CreateToggle(1, 20, 20, "Dispensers", dispensers, function (checked)
+wind:CreateToggle(1, 200, 20, "Other Buildings", dispensers, function (checked)
 	dispensers = checked
-end)
-
-wind:CreateToggle(1, 20, 20, "Teleporters", teleporters, function (checked)
 	teleporters = checked
 end)
 
-wind:CreateToggle(1, 20, 20, "Med Kit / Ammo", players, function (checked)
+wind:CreateToggle(1, 200, 20, "Med Kit / Ammo", players, function (checked)
 	medammo = checked
 end)
 
---[[wind:CreateToggle(1, 20, 20, "ViewModel", viewmodel, function (checked)
-	viewmodel = checked
-end)]]
+wind:CreateToggle(1, 200, 20, "ViewModel Arm", viewmodelArm, function (checked)
+	viewmodelArm = checked
+end)
 
-wind:CreateToggle(1, 20, 20, "Smissmass Ball", christmasball, function (checked)
+
+wind:CreateToggle(1, 200, 20, "ViewModel Weapon", viewmodelWeapon, function (checked)
+	viewmodelWeapon = checked
+end)
+
+wind:CreateToggle(1, 200, 20, "Smissmass Ball", christmasball, function (checked)
 	christmasball = checked
 end)
 
@@ -855,12 +1031,16 @@ wind.title = "Glow Settings"
 wind.x = 10
 wind.y = 50
 
+wind:RecalculateLayout(1)
+
 local function OnDraw()
 	wind:Draw()
 end
 
+callbacks.Register("DrawModel", ApplyToViewModel)
 callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
 callbacks.Register("Draw", OnDraw)
 callbacks.Register("Unload", function ()
 	draw.DeleteTexture(white_texture)
+	client.SetConVar("glow_outline_effect_enable", saved_glow_outline_effect_enable)
 end)
