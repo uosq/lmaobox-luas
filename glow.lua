@@ -670,6 +670,11 @@ local function OnDoPostScreenSpaceEffects()
 
 	local glowEnts = {}
 
+	local _, _, glow_outline_effect_enable = client.GetConVar("glow_outline_effect_enable")
+	if glow_outline_effect_enable == "1" then
+		client.SetConVar("glow_outline_effect_enable", "0")
+	end
+
 	if sentries then GetClass("CObjectSentrygun", glowEnts) end
 	if dispensers then GetClass("CObjectDispenser", glowEnts) end
 	if teleporters then GetClass("CObjectTeleporter", glowEnts) end
@@ -806,6 +811,8 @@ local function OnDoPostScreenSpaceEffects()
 
 		render.SetStencilEnable(false)
 	end
+
+	client.SetConVar("glow_outline_effect_enable", glow_outline_effect_enable)
 end
 
 local wind = window.New()
