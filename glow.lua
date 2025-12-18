@@ -237,7 +237,7 @@ function window:InsertElement(object, tab_index)
 
     local tab = self.tabs[tab_index]
     tab.objs[#tab.objs + 1] = object
-    --self:RecalculateLayout(tab_index)
+    self:RecalculateLayout(tab_index)
     return true
 end
 
@@ -437,8 +437,6 @@ local sentries = true
 local dispensers = true
 local teleporters = true
 local medammo = true
-local viewmodelArm = true
-local viewmodelWeapon = true
 local christmasball = true --- the christmas ball (i dont know what to name it)
 
 --- materials
@@ -452,6 +450,9 @@ local m_pGlowBuffer2 = nil
 
 local _, _, saved_glow_outline_effect_enable = client.GetConVar("glow_outline_effect_enable")
 
+local STUDIO_RENDER = 0x00000001
+local STUDIO_NOSHADOWS = 0x00000080
+
 local function InitMaterials()
 	if m_pMatGlowColor == nil then
 		m_pMatGlowColor = materials.Find("dev/glow_color")
@@ -462,7 +463,7 @@ local function InitMaterials()
 		[[UnlitGeneric
 		{
 			$basetexture "GlowBuffer1"
-			$additive "1"
+			$additive 1
 		}]])
 	end
 
@@ -502,9 +503,6 @@ local function InitMaterials()
 		)
 	end
 end
-
-local STUDIO_RENDER = 0x00000001
-local STUDIO_NOSHADOWS = 0x00000080
 
 local function GetGuiColor(option)
     local value = gui.GetValue(option)
@@ -586,6 +584,7 @@ local function DrawEntitiesColored(ents)
 		local entity = entities.GetByIndex(info[1])
 		if entity then
 			local color = info[2]
+
 			render.SetColorModulation(color[1], color[2], color[3])
 			entity:DrawModel(STUDIO_RENDER | STUDIO_NOSHADOWS)
 		end
@@ -661,22 +660,6 @@ local function OnDoPostScreenSpaceEffects()
 
 	local glowEnts = {}
 
-	--[[if viewmodelWeapon then
-		local plocal = entities.GetLocalPlayer()
-		if plocal then
-			local m_hViewModel = plocal:GetPropEntity("m_hViewModel[0]")
-			if m_hViewModel then
-				--local color = GetColor(m_hViewModel)
-				local child = m_hViewModel:GetMoveChild()
-				while child ~= nil do
-					glowEnts[#glowEnts+1] = {child:GetIndex(), {1, 1, 1}}
-					child = child:GetMovePeer()
-					print("hi")
-				end
-			end
-		end
-	end]]
-
 	if sentries then GetClass("CObjectSentrygun", glowEnts) end
 	if dispensers then GetClass("CObjectDispenser", glowEnts) end
 	if teleporters then GetClass("CObjectTeleporter", glowEnts) end
@@ -684,6 +667,27 @@ local function OnDoPostScreenSpaceEffects()
 	if players then GetPlayers(glowEnts) end
 
 	if christmasball then GetChristmasBalls(glowEnts) end
+
+	if gui.GetValue("no zoom") == 1 then
+		local plocal = entities.GetLocalPlayer()
+		if plocal and plocal:ShouldDraw() == false then
+			local m_nForceTauntCam = plocal:GetPropBool("m_nForceTauntCam")
+			if m_nForceTauntCam then
+				if plocal:InCond(TFCond_Zoomed) then
+
+					glowEnts[#glowEnts+1] = {plocal:GetIndex(), GetColor(plocal)}
+					local child = plocal:GetMoveChild()
+					while child do
+						if child:IsWeapon() then
+							glowEnts[#glowEnts+1] = {child:GetIndex(), GetColor(child)}
+						end
+
+						child = child:GetMovePeer()
+					end
+				end
+			end
+		end
+	end
 
 	if #glowEnts == 0 then
 		return
@@ -747,158 +751,6 @@ local function OnDoPostScreenSpaceEffects()
 		for i = 1, glow do
 			render.SetRenderTarget(m_pGlowBuffer2)
 			render.DrawScreenSpaceRectangle(m_pMatBlurX, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
-		end
-
-		for i = 1, glow do
-			render.SetRenderTarget(m_pGlowBuffer1)
-			render.DrawScreenSpaceRectangle(m_pMatBlurY, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
-		end
-
-		render.PopRenderTargetAndViewport()
-	end
-
-	--- Final pass
-	do
-		render.SetStencilEnable(true)
-		render.SetStencilWriteMask(0)
-		render.SetStencilTestMask(0xFF)
-
-		render.SetStencilReferenceValue(1)
-		render.SetStencilCompareFunction(E_StencilComparisonFunction.STENCILCOMPARISONFUNCTION_NOTEQUAL)
-
-		render.SetStencilPassOperation(E_StencilOperation.STENCILOPERATION_KEEP)
-		render.SetStencilFailOperation(E_StencilOperation.STENCILOPERATION_KEEP)
-		render.SetStencilZFailOperation(E_StencilOperation.STENCILOPERATION_KEEP)
-
-		--- pasted from amalgam
-		--- https://github.com/rei-2/Amalgam/blob/fce4740bf3af0799064bf6c8fbeaa985151b708c/Amalgam/src/Features/Visuals/Glow/Glow.cpp#L65
-		if stencil > 0 then
-			local iSide = (stencil + 1) // 2
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iSide, 0, w, h, 0, 0, w - 1, h - 1, w, h);
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, -iSide, w, h, 0, 0, w - 1, h - 1, w, h);
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iSide, 0, w, h, 0, 0, w - 1, h - 1, w, h);
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, iSide, w, h, 0, 0, w - 1, h - 1, w, h);
-			local iCorner = stencil // 2
-			if (iCorner > 0) then
-				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iCorner, -iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
-				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iCorner, iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
-				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iCorner, -iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
-				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iCorner, iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
-			end
-		end
-
-		if glow > 0 then
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h);
-		end
-
-		render.SetStencilEnable(false)
-	end
-end
-
-local function DrawViewModelChildren(vm)
-	local child = vm:GetMoveChild()
-	while child ~= nil do
-		child:DrawModel(STUDIO_RENDER | STUDIO_NOSHADOWS)
-		child = child:GetMovePeer()
-	end
-end
-
-local function ApplyToViewModel(ctx)
-	local vm = ctx:GetEntity()
-	if vm == nil or vm:GetClass() ~= "CTFViewModel" then
-		return
-	end
-
-	if engine.IsTakingScreenshot() then
-		return
-	end
-
-	if clientstate.GetClientSignonState() <= E_SignonState.SIGNONSTATE_SPAWN then
-		return
-	end
-
-	if clientstate.GetNetChannel() == nil then
-		return
-	end
-
-	if viewmodelArm == false then
-		return
-	end
-
-	if glow == 0 and stencil == 0 then
-		return
-	end
-
-	local _, _, tf2_outline = client.GetConVar("glow_outline_effect_enable")
-	if tf2_outline ~= "0" then
-		client.SetConVar("glow_outline_effect_enable", "0")
-	end
-
-	InitMaterials()
-
-	local w, h = draw.GetScreenSize()
-
-	--- Stencil Pass
-	do
-		render.SetStencilEnable(true)
-		render.ForcedMaterialOverride(m_pMatGlowColor)
-
-		local savedBlend = render.GetBlend()
-		render.SetBlend(0)
-
-		render.SetStencilReferenceValue(1)
-		render.SetStencilCompareFunction(E_StencilComparisonFunction.STENCILCOMPARISONFUNCTION_ALWAYS)
-		render.SetStencilPassOperation(E_StencilOperation.STENCILOPERATION_REPLACE)
-		render.SetStencilFailOperation(E_StencilOperation.STENCILOPERATION_KEEP)
-		render.SetStencilZFailOperation(E_StencilOperation.STENCILOPERATION_REPLACE)
-
-		ctx:Execute()
-
-		render.SetBlend(savedBlend)
-		render.ForcedMaterialOverride(nil)
-		render.SetStencilEnable(false)
-	end
-
-	--- Color pass
-	do
-		render.PushRenderTargetAndViewport()
-
-		local r, g, b = render.GetColorModulation()
-
-		local savedBlend = render.GetBlend()
-		render.SetBlend(1.0)
-
-		render.SetRenderTarget(m_pGlowBuffer1)
-		render.Viewport(0, 0, w, h)
-
-		render.ClearColor3ub(0, 0, 0)
-		render.ClearBuffers(true, false, false)
-
-		render.ForcedMaterialOverride(m_pMatGlowColor)
-
-		local color = GetColor(vm)
-		render.SetColorModulation(color[1], color[2], color[3])
-		ctx:Execute()
-
-		render.ForcedMaterialOverride(nil)
-		render.SetColorModulation(r, g, b)
-		render.SetBlend(savedBlend)
-
-		render.PopRenderTargetAndViewport()
-	end
-
-	--- Blur pass
-	if glow > 0 then
-		render.PushRenderTargetAndViewport()
-		render.Viewport(0, 0, w, h)
-
-		-- More blur iterations = blurrier (does this word exist?) glow
-		for i = 1, glow do
-			render.SetRenderTarget(m_pGlowBuffer2)
-			render.DrawScreenSpaceRectangle(m_pMatBlurX, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
-		end
-
-		for i = 1, glow do
 			render.SetRenderTarget(m_pGlowBuffer1)
 			render.DrawScreenSpaceRectangle(m_pMatBlurY, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
 		end
@@ -945,7 +797,7 @@ local function ApplyToViewModel(ctx)
 end
 
 local wind = window.New()
-wind:CreateSlider(1, 150, 20, "Blurriness", 0, 30, glow, function (value)
+wind:CreateSlider(1, 0, 20, "Blurriness", 0, 30, glow, function (value)
 	glow = value
 end)
 
@@ -970,14 +822,6 @@ wind:CreateToggle(1, 200, 20, "Med Kit / Ammo", players, function (checked)
 	medammo = checked
 end)
 
---[[wind:CreateToggle(1, 200, 20, "ViewModel Arm", viewmodelArm, function (checked)
-	viewmodelArm = checked
-end)
-
-wind:CreateToggle(1, 200, 20, "ViewModel Weapon", viewmodelWeapon, function (checked)
-	viewmodelWeapon = checked
-end)]]
-
 wind:CreateToggle(1, 200, 20, "Smissmass Ball", christmasball, function (checked)
 	christmasball = checked
 end)
@@ -992,7 +836,6 @@ local function OnDraw()
 	wind:Draw()
 end
 
---callbacks.Register("DrawModel", ApplyToViewModel)
 callbacks.Register("DoPostScreenSpaceEffects", OnDoPostScreenSpaceEffects)
 callbacks.Register("Draw", OnDraw)
 callbacks.Register("Unload", function ()
