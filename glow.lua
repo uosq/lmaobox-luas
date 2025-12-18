@@ -668,7 +668,7 @@ local function OnDoPostScreenSpaceEffects()
 
 	if christmasball then GetChristmasBalls(glowEnts) end
 
-	if gui.GetValue("no zoom") == 1 then
+	if players and gui.GetValue("no zoom") == 1 then
 		local plocal = entities.GetLocalPlayer()
 		if plocal and plocal:ShouldDraw() == false then
 			local m_nForceTauntCam = plocal:GetPropBool("m_nForceTauntCam")
