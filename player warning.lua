@@ -78,7 +78,7 @@ end
 local font = draw.CreateFont("Arial", 32, 0)
 
 local function OnDraw()
-    if clientstate.GetClientSignonState() < 5 and notification then
+    if clientstate.GetClientSignonState() < 5 and notification == false then
         if #cheaters > 0 then
             cheaters = {}
         end
