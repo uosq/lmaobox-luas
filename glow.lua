@@ -352,7 +352,7 @@ function window:CreateSlider(tab_index, width, height, label, min, max, currentv
 
         -- calculate percentage for the slider fill
         local percent = (self.value - self.min) / (self.max - self.min)
-        percent = math.max(0, math.min(1, percent)) --- clamp it ;)
+        percent = math.max(0, math.min(1, percent)) --- clamp it )
 
         --- draw slider fill
         draw.Color(theme.primary[1], theme.primary[2], theme.primary[3], 255)
@@ -440,13 +440,13 @@ local medammo = true
 local christmasball = true --- the christmas ball (i dont know what to name it)
 
 --- materials
-local m_pMatGlowColor = nil
-local m_pMatHaloAddToScreen = nil
-local m_pMatBlurX = nil
-local m_pMatBlurY = nil
-local pRtFullFrame = nil
-local m_pGlowBuffer1 = nil
-local m_pGlowBuffer2 = nil
+local MatGlowColor = nil
+local MatHaloAddToScreen = nil
+local MatBlurX = nil
+local MatBlurY = nil
+local RtFullFrame = nil
+local GlowBuffer1 = nil
+local GlowBuffer2 = nil
 
 local _, _, saved_glow_outline_effect_enable = client.GetConVar("glow_outline_effect_enable")
 
@@ -454,12 +454,12 @@ local STUDIO_RENDER = 0x00000001
 local STUDIO_NOSHADOWS = 0x00000080
 
 local function InitMaterials()
-	if m_pMatGlowColor == nil then
-		m_pMatGlowColor = materials.Find("dev/glow_color")
+	if MatGlowColor == nil then
+		MatGlowColor = materials.Find("dev/glow_color")
 	end
 
-	if m_pMatHaloAddToScreen == nil then
-		m_pMatHaloAddToScreen = materials.Create("GlowMaterialHalo",
+	if MatHaloAddToScreen == nil then
+		MatHaloAddToScreen = materials.Create("GlowMaterialHalo",
 		[[UnlitGeneric
 		{
 			$basetexture "GlowBuffer1"
@@ -467,39 +467,41 @@ local function InitMaterials()
 		}]])
 	end
 
-	if m_pMatBlurX == nil then
-		m_pMatBlurX = materials.Create("GlowMatBlurX",
+	if MatBlurX == nil then
+		MatBlurX = materials.Create("GlowMatBlurX",
 		[[BlurFilterX
 		{
 			$basetexture "GlowBuffer1"
-		}]]);
-	end
-
-	if m_pMatBlurY == nil then
-		m_pMatBlurY = materials.Create("GlowMatBlurY",
-		[[BlurFilterY
-		{
-			$basetexture "GlowBuffer2"
+			$bluramount "20"
 		}]])
 	end
 
-	if pRtFullFrame == nil then
-		pRtFullFrame = materials.FindTexture("_rt_FullFrameFB", "RenderTargets", true);
+	if MatBlurY == nil then
+		MatBlurY = materials.Create("GlowMatBlurY",
+		[[BlurFilterY
+		{
+			$basetexture "GlowBuffer2"
+			$bluramount "20"
+		}]])
 	end
 
-	if m_pGlowBuffer1 == nil then
-		m_pGlowBuffer1 = materials.CreateTextureRenderTarget(
+	if RtFullFrame == nil then
+		RtFullFrame = materials.FindTexture("_rt_FullFrameFB", "RenderTargets", true)
+	end
+
+	if GlowBuffer1 == nil then
+		GlowBuffer1 = materials.CreateTextureRenderTarget(
 			"GlowBuffer1",
-			pRtFullFrame:GetActualWidth(),
-			pRtFullFrame:GetActualHeight()
+			RtFullFrame:GetActualWidth(),
+			RtFullFrame:GetActualHeight()
 		)
 	end
 
-	if m_pGlowBuffer2 == nil then
-		m_pGlowBuffer2 = materials.CreateTextureRenderTarget(
+	if GlowBuffer2 == nil then
+		GlowBuffer2 = materials.CreateTextureRenderTarget(
 			"GlowBuffer2",
-			pRtFullFrame:GetActualWidth(),
-			pRtFullFrame:GetActualHeight()
+			RtFullFrame:GetActualWidth(),
+			RtFullFrame:GetActualHeight()
 		)
 	end
 end
@@ -635,6 +637,10 @@ local function GetChristmasBalls(outTable)
 end
 
 local function OnDoPostScreenSpaceEffects()
+	if glow == 0 and stencil == 0 then
+		return
+	end
+
 	if engine.IsTakingScreenshot() then
 		return
 	end
@@ -647,16 +653,10 @@ local function OnDoPostScreenSpaceEffects()
 		return
 	end
 
-	if glow == 0 and stencil == 0 then
-		return
-	end
-
 	local _, _, tf2_outline = client.GetConVar("glow_outline_effect_enable")
 	if tf2_outline ~= "0" then
 		client.SetConVar("glow_outline_effect_enable", "0")
 	end
-
-	InitMaterials()
 
 	local glowEnts = {}
 
@@ -693,12 +693,14 @@ local function OnDoPostScreenSpaceEffects()
 		return
 	end
 
+	InitMaterials()
+
 	local w, h = draw.GetScreenSize()
 
 	--- Stencil Pass
 	do
 		render.SetStencilEnable(true)
-		render.ForcedMaterialOverride(m_pMatGlowColor)
+		render.ForcedMaterialOverride(MatGlowColor)
 
 		local savedBlend = render.GetBlend()
 		render.SetBlend(0)
@@ -725,13 +727,13 @@ local function OnDoPostScreenSpaceEffects()
 		local savedBlend = render.GetBlend()
 		render.SetBlend(1.0)
 
-		render.SetRenderTarget(m_pGlowBuffer1)
+		render.SetRenderTarget(GlowBuffer1)
 		render.Viewport(0, 0, w, h)
 
 		render.ClearColor3ub(0, 0, 0)
 		render.ClearBuffers(true, false, false)
 
-		render.ForcedMaterialOverride(m_pMatGlowColor)
+		render.ForcedMaterialOverride(MatGlowColor)
 
 		DrawEntitiesColored(glowEnts)
 
@@ -749,10 +751,10 @@ local function OnDoPostScreenSpaceEffects()
 
 		-- More blur iterations = blurrier (does this word exist?) glow
 		for i = 1, glow do
-			render.SetRenderTarget(m_pGlowBuffer2)
-			render.DrawScreenSpaceRectangle(m_pMatBlurX, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
-			render.SetRenderTarget(m_pGlowBuffer1)
-			render.DrawScreenSpaceRectangle(m_pMatBlurY, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
+			render.SetRenderTarget(GlowBuffer2)
+			render.DrawScreenSpaceRectangle(MatBlurX, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
+			render.SetRenderTarget(GlowBuffer1)
+			render.DrawScreenSpaceRectangle(MatBlurY, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
 		end
 
 		render.PopRenderTargetAndViewport()
@@ -775,21 +777,21 @@ local function OnDoPostScreenSpaceEffects()
 		--- https://github.com/rei-2/Amalgam/blob/fce4740bf3af0799064bf6c8fbeaa985151b708c/Amalgam/src/Features/Visuals/Glow/Glow.cpp#L65
 		if stencil > 0 then
 			local iSide = (stencil + 1) // 2
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iSide, 0, w, h, 0, 0, w - 1, h - 1, w, h);
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, -iSide, w, h, 0, 0, w - 1, h - 1, w, h);
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iSide, 0, w, h, 0, 0, w - 1, h - 1, w, h);
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, iSide, w, h, 0, 0, w - 1, h - 1, w, h);
+			render.DrawScreenSpaceRectangle(MatHaloAddToScreen, -iSide, 0, w, h, 0, 0, w - 1, h - 1, w, h)
+			render.DrawScreenSpaceRectangle(MatHaloAddToScreen, 0, -iSide, w, h, 0, 0, w - 1, h - 1, w, h)
+			render.DrawScreenSpaceRectangle(MatHaloAddToScreen, iSide, 0, w, h, 0, 0, w - 1, h - 1, w, h)
+			render.DrawScreenSpaceRectangle(MatHaloAddToScreen, 0, iSide, w, h, 0, 0, w - 1, h - 1, w, h)
 			local iCorner = stencil // 2
 			if (iCorner > 0) then
-				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iCorner, -iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
-				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iCorner, iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
-				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, iCorner, -iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
-				render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, -iCorner, iCorner, w, h, 0, 0, w - 1, h - 1, w, h);
+				render.DrawScreenSpaceRectangle(MatHaloAddToScreen, -iCorner, -iCorner, w, h, 0, 0, w - 1, h - 1, w, h)
+				render.DrawScreenSpaceRectangle(MatHaloAddToScreen, iCorner, iCorner, w, h, 0, 0, w - 1, h - 1, w, h)
+				render.DrawScreenSpaceRectangle(MatHaloAddToScreen, iCorner, -iCorner, w, h, 0, 0, w - 1, h - 1, w, h)
+				render.DrawScreenSpaceRectangle(MatHaloAddToScreen, -iCorner, iCorner, w, h, 0, 0, w - 1, h - 1, w, h)
 			end
 		end
 
 		if glow > 0 then
-			render.DrawScreenSpaceRectangle(m_pMatHaloAddToScreen, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h);
+			render.DrawScreenSpaceRectangle(MatHaloAddToScreen, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h)
 		end
 
 		render.SetStencilEnable(false)

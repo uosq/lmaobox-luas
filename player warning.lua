@@ -1,11 +1,25 @@
 --- made by navet
 --- Warns when a player with > 1 priority joins the server
 
+--- config
+local notification = true
+--- 
+
 --- cheaters in the previous lobby update
 local cheaters = {}
 
 local function PartySay(text)
-    client.Command(string.format("say_party %s", text), true)
+	client.Command(string.format("say_party %s", text), true)
+end
+
+local function Notify(text)
+	client.ChatPrintf(text)
+
+	if notification then
+		engine.Notification(text)
+    	else
+		PartySay(text)
+    	end
 end
 
 ---@param event GameEvent
@@ -22,8 +36,7 @@ local function PlayerSpawnEvent(event)
 
     local priority = playerlist.GetPriority(userid)
     local text = string.format("Player %s joined the match! Priority: %i", client.GetPlayerNameByUserID(userid), priority)
-    client.ChatPrintf(text)
-    PartySay(text)
+    Notify(text)
 end
 
 ---@param event GameEvent
@@ -34,8 +47,7 @@ local function PlayerDisconnectEvent(event)
         local name = steam.GetPlayerName(steamID)
         local priority = playerlist.GetPriority(steamID)
         local text = string.format("Player %s quit! Priority: %i", name, priority)
-        client.ChatPrintf(text)
-        PartySay(text)
+        Notify(text)
     end
 end
 
@@ -57,7 +69,7 @@ local function OnLobbyUpdate(lobby)
                 cheaters[steamID] = true
                 local text = string.format("Lobby Update - Player %s in the match (priority: %i)!", steam.GetPlayerName(steamID), playerlist.GetPriority(steamID))
                 client.ChatPrintf(text)
-                PartySay(text)
+                Notify(text)
             end
         end
     end
@@ -66,7 +78,7 @@ end
 local font = draw.CreateFont("Arial", 32, 0)
 
 local function OnDraw()
-    if clientstate.GetClientSignonState() < 5 then
+    if clientstate.GetClientSignonState() < 5 and notification then
         if #cheaters > 0 then
             cheaters = {}
         end
